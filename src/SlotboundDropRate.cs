@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +15,12 @@ namespace SlotboundDropRate
         [STAThread]
         private static void Main(string[] args)
         {
+            foreach (string a in args)
+            {
+                if (a == "--lang=en" || a == "--english") L.Zh = false;
+                if (a == "--lang=zh" || a == "--chinese") L.Zh = true;
+            }
+
             if (args.Length > 0 && args[0] == "--scan")
             {
                 ScanCli();
@@ -24,6 +31,7 @@ namespace SlotboundDropRate
                 SelfTest();
                 return;
             }
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
@@ -86,7 +94,7 @@ namespace SlotboundDropRate
                 IntPtr h = Native.OpenProcess(
                     Native.PROCESS_VM_READ | Native.PROCESS_VM_WRITE | Native.PROCESS_VM_OPERATION | Native.PROCESS_QUERY_INFORMATION,
                     false, ps[0].Id);
-                if (h == IntPtr.Zero) { System.IO.File.WriteAllText(log, "打开进程失败 " + Marshal.GetLastWin32Error()); return; }
+                if (h == IntPtr.Zero) { System.IO.File.WriteAllText(log, "OpenProcess failed " + Marshal.GetLastWin32Error()); return; }
                 int a, b, c, d;
                 Patcher.Scan(h, "0.8:0.15:0.045:0.004:0.001", "0.5:0.3:0.1:0.07:0.03", true, false, out a, out b, out c, out d);
                 Native.CloseHandle(h);
@@ -98,6 +106,18 @@ namespace SlotboundDropRate
                 try { System.IO.File.WriteAllText(log, "异常 " + ex); } catch { }
             }
         }
+    }
+
+    /// <summary>Runtime language switch. Chinese by default, English for non-Chinese systems.</summary>
+    internal static class L
+    {
+        public static bool Zh;
+        static L()
+        {
+            string two = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+            Zh = two == "zh";
+        }
+        public static string T(string zh, string en) { return Zh ? zh : en; }
     }
 
     internal static class Native
@@ -140,18 +160,17 @@ namespace SlotboundDropRate
 
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern IntPtr VirtualQueryEx(IntPtr h, IntPtr addr, out MEMORY_BASIC_INFORMATION mbi, IntPtr len);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool VirtualProtectEx(IntPtr h, IntPtr addr, IntPtr size, uint newProtect, out uint oldProtect);
     }
 
     internal sealed class MainForm : Form
     {
-        private static readonly string[] GradeNames = { "普通", "高级", "稀有", "传说", "棱彩" };
+        private static readonly string[] GradeZh = { "普通", "高级", "稀有", "传说", "棱彩" };
+        private static readonly string[] GradeEn = { "Normal", "Advanced", "Rare", "Legendary", "Prismatic" };
         private static readonly decimal[] Defaults = { 80m, 15m, 4.5m, 0.4m, 0.1m };
         private const string DefaultOdds = "0.8:0.15:0.045:0.004:0.001";
 
         private readonly NumericUpDown[] _inputs = new NumericUpDown[5];
+        private readonly Label[] _gradeLabels = new Label[5];
         private readonly TextBox _oddsBox;
         private readonly Label _status;
         private readonly Label _conn;
@@ -161,6 +180,14 @@ namespace SlotboundDropRate
         private readonly Button _restoreBtn;
         private readonly Button _scanBtn;
         private readonly Timer _timer;
+        private readonly Label _title;
+        private readonly Label _sub;
+        private readonly GroupBox _group;
+        private readonly Label _info;
+        private readonly Label _oddsLab;
+        private readonly Label _tip;
+        private readonly LinkLabel _link;
+        private readonly LinkLabel _langLink;
 
         private Process _proc;
         private IntPtr _handle = IntPtr.Zero;
@@ -169,7 +196,7 @@ namespace SlotboundDropRate
 
         public MainForm()
         {
-            Text = "Slotbound 爆率调节";
+            Text = L.T("Slotbound 爆率调节", "Slotbound Drop Rate");
             ClientSize = new Size(600, 526);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -178,31 +205,34 @@ namespace SlotboundDropRate
             BackColor = Color.FromArgb(28, 26, 38);
             ForeColor = Color.FromArgb(235, 230, 245);
 
-            var title = new Label();
-            title.Text = "Slotbound 爆率调节";
-            title.Font = new Font("Microsoft YaHei UI", 15F, FontStyle.Bold);
-            title.ForeColor = Color.FromArgb(255, 160, 210);
-            title.SetBounds(14, 10, 400, 32);
-            Controls.Add(title);
+            _title = new Label();
+            _title.Font = new Font("Microsoft YaHei UI", 15F, FontStyle.Bold);
+            _title.ForeColor = Color.FromArgb(255, 160, 210);
+            _title.SetBounds(14, 10, 420, 32);
+            Controls.Add(_title);
 
-            var sub = new Label();
-            sub.Text = "运行时修改本局稀有度权重，不改游戏文件、不改存档";
-            sub.ForeColor = Color.FromArgb(170, 165, 185);
-            sub.SetBounds(16, 44, 560, 20);
-            Controls.Add(sub);
+            _langLink = new LinkLabel();
+            _langLink.SetBounds(520, 12, 66, 22);
+            _langLink.LinkColor = Color.FromArgb(255, 160, 210);
+            _langLink.LinkClicked += delegate { L.Zh = !L.Zh; ApplyLanguage(); };
+            Controls.Add(_langLink);
 
-            var group = new GroupBox();
-            group.Text = " 爆率（%） ";
-            group.ForeColor = Color.FromArgb(210, 205, 225);
-            group.SetBounds(14, 70, 280, 240);
-            Controls.Add(group);
+            _sub = new Label();
+            _sub.ForeColor = Color.FromArgb(170, 165, 185);
+            _sub.SetBounds(16, 44, 560, 20);
+            Controls.Add(_sub);
+
+            _group = new GroupBox();
+            _group.ForeColor = Color.FromArgb(210, 205, 225);
+            _group.SetBounds(14, 70, 280, 240);
+            Controls.Add(_group);
 
             for (int i = 0; i < 5; i++)
             {
                 var lab = new Label();
-                lab.Text = GradeNames[i];
-                lab.SetBounds(16, 30 + i * 38, 60, 24);
-                group.Controls.Add(lab);
+                lab.SetBounds(12, 30 + i * 38, 78, 24);
+                _group.Controls.Add(lab);
+                _gradeLabels[i] = lab;
 
                 var num = new NumericUpDown();
                 num.DecimalPlaces = 3;
@@ -210,30 +240,28 @@ namespace SlotboundDropRate
                 num.Maximum = 100m;
                 num.Increment = 0.1m;
                 num.Value = Defaults[i];
-                num.SetBounds(80, 28 + i * 38, 100, 26);
+                num.SetBounds(92, 28 + i * 38, 92, 26);
                 num.BackColor = Color.FromArgb(45, 42, 58);
                 num.ForeColor = Color.White;
                 num.BorderStyle = BorderStyle.FixedSingle;
-                group.Controls.Add(num);
+                _group.Controls.Add(num);
                 _inputs[i] = num;
 
                 var pct = new Label();
                 pct.Text = "%";
-                pct.SetBounds(186, 30 + i * 38, 20, 22);
-                group.Controls.Add(pct);
+                pct.SetBounds(188, 30 + i * 38, 20, 22);
+                _group.Controls.Add(pct);
             }
 
-            var info = new Label();
-            info.Text = "默认值 = 你存档当前的爆率\r\n（元升级全满：传说 0.4%、棱彩 0.1%）";
-            info.ForeColor = Color.FromArgb(150, 146, 168);
-            info.SetBounds(310, 78, 276, 48);
-            Controls.Add(info);
+            _info = new Label();
+            _info.ForeColor = Color.FromArgb(150, 146, 168);
+            _info.SetBounds(310, 78, 276, 48);
+            Controls.Add(_info);
 
-            var oddsLab = new Label();
-            oddsLab.Text = "当前爆率串（内存里用来定位的原文）";
-            oddsLab.ForeColor = Color.FromArgb(200, 196, 215);
-            oddsLab.SetBounds(310, 132, 280, 20);
-            Controls.Add(oddsLab);
+            _oddsLab = new Label();
+            _oddsLab.ForeColor = Color.FromArgb(200, 196, 215);
+            _oddsLab.SetBounds(310, 132, 280, 20);
+            Controls.Add(_oddsLab);
 
             _oddsBox = new TextBox();
             _oddsBox.Text = DefaultOdds;
@@ -243,32 +271,29 @@ namespace SlotboundDropRate
             _oddsBox.BorderStyle = BorderStyle.FixedSingle;
             Controls.Add(_oddsBox);
 
-            _applyBtn = MakeButton("应用一次", 14, 324, 120);
+            _applyBtn = MakeButton(14, 324, 120);
             _applyBtn.Click += delegate { Apply(false); };
             Controls.Add(_applyBtn);
 
-            _restoreBtn = MakeButton("恢复默认", 144, 324, 120);
+            _restoreBtn = MakeButton(144, 324, 120);
             _restoreBtn.Click += delegate { Restore(); };
             Controls.Add(_restoreBtn);
 
-            _scanBtn = MakeButton("仅扫描", 274, 324, 120);
+            _scanBtn = MakeButton(274, 324, 120);
             _scanBtn.Click += delegate { Apply(true); };
             Controls.Add(_scanBtn);
 
-            _numChk = new CheckBox();
-            _numChk.Text = "同时改数值表（实验）";
-            _numChk.SetBounds(230, 366, 200, 24);
-            _numChk.ForeColor = Color.FromArgb(170, 165, 185);
-            Controls.Add(_numChk);
-
             _auto = new CheckBox();
-            _auto.Text = "自动（每秒补一次）";
             _auto.SetBounds(14, 366, 200, 24);
             _auto.ForeColor = Color.FromArgb(210, 205, 225);
             Controls.Add(_auto);
 
+            _numChk = new CheckBox();
+            _numChk.SetBounds(230, 366, 220, 24);
+            _numChk.ForeColor = Color.FromArgb(170, 165, 185);
+            Controls.Add(_numChk);
+
             _status = new Label();
-            _status.Text = "等待操作";
             _status.SetBounds(14, 398, 572, 64);
             _status.BorderStyle = BorderStyle.FixedSingle;
             _status.Padding = new Padding(8);
@@ -276,23 +301,20 @@ namespace SlotboundDropRate
             Controls.Add(_status);
 
             _conn = new Label();
-            _conn.Text = "未连接游戏";
-            _conn.SetBounds(14, 470, 300, 22);
+            _conn.SetBounds(14, 470, 320, 22);
             _conn.ForeColor = Color.FromArgb(160, 156, 178);
             Controls.Add(_conn);
 
-            var link = new LinkLabel();
-            link.Text = "GitHub 项目主页";
-            link.SetBounds(440, 470, 150, 22);
-            link.LinkColor = Color.FromArgb(255, 160, 210);
-            link.LinkClicked += delegate { try { Process.Start("https://github.com/zyw313313-collab/slotbound-drop-rate"); } catch { } };
-            Controls.Add(link);
+            _link = new LinkLabel();
+            _link.SetBounds(430, 470, 160, 22);
+            _link.LinkColor = Color.FromArgb(255, 160, 210);
+            _link.LinkClicked += delegate { try { Process.Start("https://github.com/zyw313313-collab/slotbound-drop-rate"); } catch { } };
+            Controls.Add(_link);
 
-            var tip = new Label();
-            tip.Text = "只对当前游戏进程生效；重启游戏后重新打开本工具。建议先备份存档。";
-            tip.ForeColor = Color.FromArgb(140, 136, 158);
-            tip.SetBounds(14, 496, 572, 22);
-            Controls.Add(tip);
+            _tip = new Label();
+            _tip.ForeColor = Color.FromArgb(140, 136, 158);
+            _tip.SetBounds(14, 496, 572, 22);
+            Controls.Add(_tip);
 
             _timer = new Timer();
             _timer.Interval = 1000;
@@ -300,12 +322,13 @@ namespace SlotboundDropRate
             _timer.Start();
 
             FormClosing += delegate { Detach(); };
+
+            ApplyLanguage();
         }
 
-        private Button MakeButton(string text, int x, int y, int w)
+        private Button MakeButton(int x, int y, int w)
         {
             var b = new Button();
-            b.Text = text;
             b.SetBounds(x, y, w, 32);
             b.FlatStyle = FlatStyle.Flat;
             b.BackColor = Color.FromArgb(58, 52, 76);
@@ -314,13 +337,40 @@ namespace SlotboundDropRate
             return b;
         }
 
+        private void ApplyLanguage()
+        {
+            Text = L.T("Slotbound 爆率调节", "Slotbound Drop Rate");
+            _title.Text = Text;
+            _langLink.Text = L.T("English", "中文");
+            _sub.Text = L.T("运行时修改本局稀有度权重，不改游戏文件、不改存档",
+                            "Adjust this run's rarity odds. No file edits, no save edits.");
+            _group.Text = L.T(" 爆率（%） ", " Drop rate (%) ");
+            for (int i = 0; i < 5; i++)
+                _gradeLabels[i].Text = L.Zh ? GradeZh[i] : GradeEn[i];
+            _info.Text = L.T("默认值 = 你存档当前的爆率\r\n（元升级全满：传说 0.4%、棱彩 0.1%）",
+                             "Defaults = your save's odds\r\n(Legendary 0.4%, Prismatic 0.1%)");
+            _oddsLab.Text = L.T("当前爆率串（内存里用来定位的原文）", "Current odds string (locator)");
+            _applyBtn.Text = L.T("应用一次", "Apply once");
+            _restoreBtn.Text = L.T("恢复默认", "Restore defaults");
+            _scanBtn.Text = L.T("仅扫描", "Scan only");
+            _auto.Text = L.T("自动（每秒补一次）", "Auto (every second)");
+            _numChk.Text = L.T("同时改数值表（实验）", "Also patch number tables (experimental)");
+            _conn.Text = _proc != null && !_proc.HasExited
+                ? L.T("已连接 Slotbound (PID " + _proc.Id + ")", "Connected to Slotbound (PID " + _proc.Id + ")")
+                : L.T("未连接游戏", "Not connected");
+            _link.Text = L.T("GitHub 项目主页", "GitHub project");
+            _tip.Text = L.T("只对当前游戏进程生效；重启游戏后重新打开本工具。建议先备份存档。",
+                            "Affects the running process only; reopen after restarting the game. Back up your save first.");
+            _status.Text = L.T("等待操作", "Ready");
+        }
+
         private void OnTick()
         {
             if (_proc == null || _proc.HasExited)
             {
                 _proc = null;
                 if (_handle != IntPtr.Zero) { Native.CloseHandle(_handle); _handle = IntPtr.Zero; }
-                _conn.Text = "未连接游戏";
+                _conn.Text = L.T("未连接游戏", "Not connected");
             }
             if (_auto.Checked && !_busy)
                 Apply(true);
@@ -332,7 +382,7 @@ namespace SlotboundDropRate
             Process[] ps = Process.GetProcessesByName("Slotbound");
             if (ps.Length == 0)
             {
-                _conn.Text = "未找到 Slotbound.exe，请先启动游戏";
+                _conn.Text = L.T("未找到 Slotbound.exe，请先启动游戏", "Slotbound.exe not found. Start the game first.");
                 return false;
             }
             _proc = ps[0];
@@ -341,11 +391,12 @@ namespace SlotboundDropRate
                 false, _proc.Id);
             if (_handle == IntPtr.Zero)
             {
-                _conn.Text = "无法打开进程（错误 " + Marshal.GetLastWin32Error() + "），请用管理员身份运行";
+                _conn.Text = L.T("无法打开进程（错误 " + Marshal.GetLastWin32Error() + "），请用管理员身份运行",
+                                 "Cannot open process (error " + Marshal.GetLastWin32Error() + "). Run as administrator.");
                 _proc = null;
                 return false;
             }
-            _conn.Text = "已连接 Slotbound (PID " + _proc.Id + ")";
+            _conn.Text = L.T("已连接 Slotbound (PID " + _proc.Id + ")", "Connected to Slotbound (PID " + _proc.Id + ")");
             return true;
         }
 
@@ -371,7 +422,7 @@ namespace SlotboundDropRate
             string[] parts = new string[5];
             for (int i = 0; i < 5; i++)
             {
-                string s = (vals[i] / 100m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+                string s = (vals[i] / 100m).ToString("0.####", CultureInfo.InvariantCulture);
                 if (s == "") s = "0";
                 parts[i] = s;
             }
@@ -383,7 +434,7 @@ namespace SlotboundDropRate
                     for (int i = 0; i < 5; i++)
                     {
                         string fmt = "0." + new string('#', p);
-                        string s = (vals[i] / 100m).ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
+                        string s = (vals[i] / 100m).ToString(fmt, CultureInfo.InvariantCulture);
                         if (s == "") s = "0";
                         parts[i] = s;
                     }
@@ -402,20 +453,20 @@ namespace SlotboundDropRate
             decimal[] vals = ReadValues();
             if (vals == null)
             {
-                _status.Text = "数值无效：至少填一个大于 0 的百分比";
+                _status.Text = L.T("数值无效：至少填一个大于 0 的百分比", "Invalid values: at least one percentage must be > 0.");
                 return;
             }
             string orig = _oddsBox.Text.Trim();
             if (orig.Length < 5)
             {
-                _status.Text = "当前爆率串太短";
+                _status.Text = L.T("当前爆率串太短", "Current odds string is too short.");
                 return;
             }
             string newStr = FormatOdds(vals, orig.Length);
             _lastNew = newStr;
             _busy = true;
             SetBusy(true);
-            _status.Text = scanOnly ? "扫描中…" : "写入中…";
+            _status.Text = scanOnly ? L.T("扫描中…", "Scanning…") : L.T("写入中…", "Writing…");
 
             IntPtr handle = _handle;
             Task.Factory.StartNew(delegate
@@ -433,15 +484,17 @@ namespace SlotboundDropRate
                     SetBusy(false);
                     if (err != null)
                     {
-                        _status.Text = "出错：" + err;
+                        _status.Text = L.T("出错：", "Error: ") + err;
                         return;
                     }
-                    string head = scanOnly ? "扫描结果" : "已应用";
-                    _status.Text = string.Format(
+                    string head = scanOnly ? L.T("扫描结果", "Scan result") : L.T("已应用", "Applied");
+                    _status.Text = string.Format(L.T(
                         "{0}\r\n爆率串：匹配 {1} 处，改写 {2} 处\r\n数值表：匹配 {3} 处，改写 {4} 处\r\n新爆率：{5}",
+                        "{0}\r\nOdds string: {1} matched, {2} written\r\nNumber table: {3} matched, {4} written\r\nNew odds: {5}"),
                         head, strHits, strWrites, numHits, numWrites, newStr);
                     if (!scanOnly && strWrites == 0 && numWrites == 0)
-                        _status.Text += "\r\n没找到可改的爆率串：先进入一局、拉一次杆再点应用。";
+                        _status.Text += L.T("\r\n没找到可改的爆率串：先进入一局、拉一次杆再点应用。",
+                                            "\r\nNothing found: enter a run, spin once, then apply again.");
                 });
             });
         }
@@ -456,7 +509,7 @@ namespace SlotboundDropRate
             string cur = FormatOdds(vals, orig.Length);
             if (cur == orig)
             {
-                _status.Text = "当前百分比就是默认值，无需恢复";
+                _status.Text = L.T("当前百分比就是默认值，无需恢复", "These are already the defaults.");
                 return;
             }
             _busy = true;
@@ -472,7 +525,9 @@ namespace SlotboundDropRate
                 {
                     _busy = false;
                     SetBusy(false);
-                    _status.Text = err != null ? ("恢复出错：" + err) : string.Format("已恢复 {0} 处爆率串", b);
+                    _status.Text = err != null
+                        ? L.T("恢复出错：", "Restore error: ") + err
+                        : string.Format(L.T("已恢复 {0} 处爆率串", "Restored {0} odds strings"), b);
                 });
             });
         }
@@ -610,8 +665,7 @@ namespace SlotboundDropRate
             for (int i = 0; i < 5; i++)
             {
                 double v;
-                if (!double.TryParse(parts[i], System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out v))
+                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out v))
                     return false;
                 byte[] b = BitConverter.GetBytes(v);
                 Buffer.BlockCopy(b, 0, all, i * 8, 8);

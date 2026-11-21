@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slotbound Drop Rate — One-click install</title>
+<meta name="description" content="Slotbound rarity odds editor. Adjust Prismatic / Legendary drop rates at runtime — no file edits, no save edits, single-player only.">
+<meta property="og:title" content="Slotbound Drop Rate">
+<meta property="og:description" content="Tune Prismatic / Legendary odds. One-click install for Windows.">
+<meta property="og:image" content="https://zyw313313-collab.github.io/slotbound-drop-rate/app_en.png">
+<link rel="icon" href="icon.png">
+<style>
+  :root{
+    --bg:#14121c; --card:#1f1c2b; --line:#322d44; --text:#ece8f6;
+    --muted:#a9a3bd; --pink:#ff9fd2; --pink-dim:#e37bb4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.7 "Segoe UI",system-ui,-apple-system,"Microsoft YaHei UI",sans-serif;
+    background-image:radial-gradient(900px 500px at 80% -10%,rgba(255,159,210,.14),transparent 60%),
+                     radial-gradient(700px 400px at 0% 30%,rgba(120,90,255,.10),transparent 60%);}
+  a{color:var(--pink);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:700}
+  .brand img{width:34px;height:34px;border-radius:9px}
+  .nav a{margin-left:20px;color:var(--muted);font-size:14px}
+  .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:56px 0 40px}
+  .hero h1{font-size:44px;line-height:1.2;margin:0 0 14px}
+  .hero h1 span{color:var(--pink)}
+  .tag{color:var(--muted);font-size:17px;margin:0 0 26px}
+  .badges{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px}
+  .badge{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+  .btns{display:flex;flex-wrap:wrap;gap:12px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:12px;
+    font-weight:700;font-size:15px;border:1px solid transparent;cursor:pointer}
+  .btn-primary{background:var(--pink);color:#1a1622}
+  .btn-primary:hover{background:#ffb6dd;text-decoration:none}
+  .btn-ghost{border-color:var(--line);color:var(--text);background:#221f30}
+  .btn-ghost:hover{border-color:var(--pink-dim);text-decoration:none}
+  .shot{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card);
+    box-shadow:0 30px 80px rgba(0,0,0,.45)}
+  .shot img{display:block;width:100%}
+  section{padding:34px 0}
+  h2{font-size:25px;margin:0 0 18px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .card p{margin:0;color:var(--muted);font-size:14px}
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:14px}
+  ol.steps li{counter-increment:s;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px 16px 58px;position:relative;color:var(--muted)}
+  ol.steps li::before{content:counter(s);position:absolute;left:16px;top:15px;width:28px;height:28px;
+    border-radius:50%;background:rgba(255,159,210,.14);color:var(--pink);font-weight:800;
+    display:grid;place-items:center;font-size:14px}
+  ol.steps b{color:var(--text)}
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:10px}
+  summary{cursor:pointer;font-weight:700}
+  details p{color:var(--muted);margin:10px 0 0}
+  .note{border-left:3px solid var(--pink);background:rgba(255,159,210,.06);padding:14px 18px;border-radius:0 10px 10px 0;color:var(--muted);font-size:14px}
+  footer{border-top:1px solid var(--line);margin-top:40px;padding:26px 0 50px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  code{background:#2a2638;border-radius:6px;padding:2px 6px;font-size:13px}
+  @media(max-width:820px){
+    .hero{grid-template-columns:1fr;padding-top:30px}
+    .hero h1{font-size:34px}
+    .cards{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><img src="icon.png" alt="">Slotbound Drop Rate</div>
+    <nav class="nav">
+      <a href="#install">Install</a>
+      <a href="#usage">Usage</a>
+      <a href="#faq">FAQ</a>
+      <a href="index.html">中文</a>
+      <a href="https://github.com/zyw313313-collab/slotbound-drop-rate">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Tune <span>Prismatic</span> and <span>Legendary</span> odds.<br>One switch.</h1>
+      <p class="tag">A drop-rate editor for Slotbound. Rewrites this run's rarity weights in memory — <b>no file edits, no save edits, no multiplayer</b>. Restart the game and everything is back to vanilla.</p>
+      <div class="badges">
+        <span class="badge">Windows 10 / 11</span>
+        <span class="badge">Portable · single EXE</span>
+        <span class="badge">Requires admin</span>
+        <span class="badge">Single-player only</span>
+      </div>
+      <div class="btns">
+        <a class="btn btn-primary" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe">Download for Windows</a>
+        <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat">One-click installer</a>
+        <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate">Source code</a>
+      </div>
+    </div>
+    <div class="shot"><img src="app_en.png" alt="Slotbound Drop Rate UI"></div>
+  </div>
+
+  <section id="features">
+    <h2>What it does</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Five rarities, fully adjustable</h3>
+        <p>Normal / Advanced / Rare / Legendary / Prismatic. Enter percentages and hit “Apply once”. Defaults match your save: 80 / 15 / 4.5 / 0.4 / 0.1.</p>
+      </div>
+      <div class="card">
+        <h3>Auto re-apply</h3>
+        <p>Tick “Auto” and it re-applies every second, so a freshly started run gets patched automatically without clicking again.</p>
+      </div>
+      <div class="card">
+        <h3>Memory only</h3>
+        <p>The game ships its data in an encrypted <code>Slotbound.dat</code>, so file editing is impossible. This tool only writes to the running process — close the game and it's gone.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install &amp; use</h2>
+    <ol class="steps">
+      <li><b>Start the game</b>, enter a run and spin once (this creates the odds data).</li>
+      <li><b>Run the tool.</b> Windows will ask for UAC — click “Yes” (Steam usually runs the game elevated, so the tool must match).</li>
+      <li>It connects to <code>Slotbound.exe</code> automatically; the bottom bar shows “Connected to Slotbound (PID …)”.</li>
+      <li>Set the five percentages and click <b>Apply once</b>; the status line reports how many matches were written.</li>
+      <li>For future runs, tick <b>Auto</b>. To revert, restore the defaults or just restart the game.</li>
+    </ol>
+    <p class="note">Back up <code>%APPDATA%\slotbound_full</code> first. The tool never writes saves, but backups are cheap.</p>
+  </section>
+
+  <section id="faq">
+    <h2>FAQ</h2>
+    <details><summary>“Slotbound.exe not found” / “Cannot open process”</summary>
+      <p>Run the tool as administrator (right-click → Run as administrator) and make sure you are already inside a run. If Steam was started as admin, the game process is elevated and a normal-privilege tool cannot read it.</p></details>
+    <details><summary>It says “0 matched”</summary>
+      <p>The run has not generated the odds string yet: spin once and apply again, or just tick “Auto”. If it stays at 0, open a GitHub issue with a screenshot.</p></details>
+    <details><summary>Applied, but spins look the same</summary>
+      <p>Some builds cache odds as numbers at run start. Try “Also patch number tables (experimental)”; if that still does nothing, report your game version in the issues.</p></details>
+    <details><summary>Can I get banned?</summary>
+      <p>This is a single-player game with no PvP, leaderboards or trading, and the tool only reads/writes its own process memory. It does not touch Steam or any DRM. Use at your own risk.</p></details>
+    <details><summary>Mac / Linux / mobile?</summary>
+      <p>No. Windows 10/11 only (.NET Framework 4.x ships with the OS).</p></details>
+  </section>
+
+  <section id="build">
+    <h2>Build it yourself</h2>
+    <p class="tag">The repo contains the full C# source; it only needs the .NET Framework that ships with Windows:</p>
+    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → <code>dist\SlotboundDropRate.exe</code></p>
+  </section>
+
+  <footer>
+    <div>Slotbound Drop Rate · unofficial tool · single-player use only</div>
+    <div><a href="https://github.com/zyw313313-collab/slotbound-drop-rate">GitHub</a> · <a href="https://github.com/zyw313313-collab/slotbound-drop-rate/issues">Issues</a> · <a href="index.html">中文</a></div>
+  </footer>
+</div>
+</body>
+</html>
