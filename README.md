@@ -16,6 +16,7 @@
 ### 功能
 
 - 五个稀有度独立调节：普通 / 高级 / 稀有 / 传说 / 棱彩
+- 自动按 `grade` 字段定位当前局的真实爆率（不再依赖固定字符串，版本更新/不同开局都能找到）
 - 「应用一次」立即改写本局爆率串
 - 「自动」每秒补一次，新开一局也自动生效
 - 「恢复默认」一键还原
@@ -46,6 +47,7 @@
 ### Features
 
 - Five rarities, fully adjustable: Normal / Advanced / Rare / Legendary / Prismatic
+- Auto-locates the live `grade` odds in the current run (no fixed string, survives different runs and patches)
 - **Apply once** rewrites the current run's odds string immediately
 - **Auto** re-applies every second, so newly started runs are patched automatically
 - **Restore defaults** to revert

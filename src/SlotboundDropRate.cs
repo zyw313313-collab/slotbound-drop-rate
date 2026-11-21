@@ -96,10 +96,10 @@ namespace SlotboundDropRate
                     false, ps[0].Id);
                 if (h == IntPtr.Zero) { System.IO.File.WriteAllText(log, "OpenProcess failed " + Marshal.GetLastWin32Error()); return; }
                 int a, b, c, d;
-                Patcher.Scan(h, "0.8:0.15:0.045:0.004:0.001", "0.5:0.3:0.1:0.07:0.03", true, false, out a, out b, out c, out d);
+                Patcher.Scan(h, "0.8:0.15:0.045:0.004:0.001", "0.5:0.3:0.1:0.07:0.03", false, false, out a, out b, out c, out d);
                 Native.CloseHandle(h);
                 System.IO.File.WriteAllText(log, string.Format(
-                    "pid={0}\r\nstring_hits={1}\r\ndouble_hits={2}", ps[0].Id, a, c));
+                    "pid={0}\r\nstring_hits={1}\r\nstring_writes={2}\r\ngrade_old={3}\r\ndouble_hits={4}", ps[0].Id, a, b, Patcher.LastOldGrade, c));
             }
             catch (Exception ex)
             {
@@ -492,6 +492,9 @@ namespace SlotboundDropRate
                         "{0}\r\n爆率串：匹配 {1} 处，改写 {2} 处\r\n数值表：匹配 {3} 处，改写 {4} 处\r\n新爆率：{5}",
                         "{0}\r\nOdds string: {1} matched, {2} written\r\nNumber table: {3} matched, {4} written\r\nNew odds: {5}"),
                         head, strHits, strWrites, numHits, numWrites, newStr);
+                    if (Patcher.LastOldGrade.Length > 0)
+                        _status.Text += L.T("\r\n检测到 grade 旧值：" + Patcher.LastOldGrade,
+                                            "\r\nDetected grade odds: " + Patcher.LastOldGrade);
                     if (!scanOnly && strWrites == 0 && numWrites == 0)
                         _status.Text += L.T("\r\n没找到可改的爆率串：先进入一局、拉一次杆再点应用。",
                                             "\r\nNothing found: enter a run, spin once, then apply again.");
@@ -544,11 +547,19 @@ namespace SlotboundDropRate
     {
         private const int Chunk = 8 * 1024 * 1024;
         private const int Overlap = 64;
+        private const ulong TagStr = 0xFFFD800000000000UL;
+        private const ulong TagMask = 0xFFFF000000000000UL;
+        private const long PtrMask = 0x00007FFFFFFFFFFF;
+        public static string LastOldGrade = "";
 
         public static void Scan(IntPtr h, string orig, string newStr, bool scanOnly, bool patchNumbers,
             out int strHits, out int strWrites, out int numHits, out int numWrites)
         {
             strHits = 0; strWrites = 0; numHits = 0; numWrites = 0;
+            LastOldGrade = "";
+            decimal[] gradeVals = ParsePercent(newStr);
+            if (gradeVals != null)
+                PatchGrade(h, gradeVals, scanOnly, ref strHits, ref strWrites);
             byte[] strPat = Encoding.ASCII.GetBytes(orig);
             List<byte[]> numPats = new List<byte[]>();
             numPats.Add(PackDoubles(0.8, 0.15, 0.045, 0.004, 0.001));
@@ -604,7 +615,7 @@ namespace SlotboundDropRate
                 addr = next;
             }
 
-            strHits = stringHits.Count;
+            strHits += stringHits.Count;
             foreach (var list in numHitsByPat) numHits += list.Count;
             if (scanOnly) return;
 
@@ -630,6 +641,221 @@ namespace SlotboundDropRate
                     }
                 }
             }
+        }
+
+        private static decimal[] ParsePercent(string s)
+        {
+            string[] parts = s.Split(':');
+            if (parts.Length != 5) return null;
+            decimal[] v = new decimal[5];
+            for (int i = 0; i < 5; i++)
+            {
+                decimal d;
+                if (!decimal.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out d)) return null;
+                v[i] = d * 100m;
+            }
+            return v;
+        }
+
+        private static bool IsOddsString(string s)
+        {
+            string[] parts = s.Split(':');
+            if (parts.Length != 5) return false;
+            double sum = 0;
+            for (int i = 0; i < 5; i++)
+            {
+                double d;
+                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out d)) return false;
+                if (d < 0 || d > 1.0001) return false;
+                sum += d;
+            }
+            return Math.Abs(sum - 1.0) < 0.03;
+        }
+
+        private static byte[] ReadBytes(IntPtr h, long addr, int len)
+        {
+            byte[] buf = new byte[len];
+            IntPtr got;
+            if (!Native.ReadProcessMemory(h, new IntPtr(addr), buf, new IntPtr(len), out got)) return null;
+            return got.ToInt64() == len ? buf : null;
+        }
+
+        private static bool TryReadU64(IntPtr h, long addr, out ulong v)
+        {
+            byte[] b = ReadBytes(h, addr, 8);
+            v = 0;
+            if (b == null) return false;
+            v = BitConverter.ToUInt64(b, 0);
+            return true;
+        }
+
+        private static bool TryReadU32(IntPtr h, long addr, out uint v)
+        {
+            byte[] b = ReadBytes(h, addr, 4);
+            v = 0;
+            if (b == null) return false;
+            v = BitConverter.ToUInt32(b, 0);
+            return true;
+        }
+
+        private static List<long> ScanForBytes(IntPtr h, byte[] pat)
+        {
+            var hits = new List<long>();
+            long addr = 0;
+            Native.MEMORY_BASIC_INFORMATION mbi;
+            while (Native.VirtualQueryEx(h, new IntPtr(addr), out mbi, new IntPtr(Marshal.SizeOf(typeof(Native.MEMORY_BASIC_INFORMATION)))) != IntPtr.Zero)
+            {
+                long baseAddr = mbi.BaseAddress.ToInt64();
+                long size = mbi.RegionSize.ToInt64();
+                if (size <= 0) break;
+                bool usable = mbi.State == Native.MEM_COMMIT && mbi.Type == Native.MEM_PRIVATE &&
+                              (mbi.Protect == Native.PAGE_READWRITE || mbi.Protect == Native.PAGE_EXECUTE_READWRITE ||
+                               mbi.Protect == Native.PAGE_WRITECOPY || mbi.Protect == Native.PAGE_EXECUTE_WRITECOPY);
+                if (usable)
+                {
+                    for (long at = baseAddr; at < baseAddr + size; at += Chunk)
+                    {
+                        long start = at > baseAddr + Overlap ? at - Overlap : baseAddr;
+                        int want = (int)Math.Min(Chunk + Overlap, baseAddr + size - start);
+                        byte[] buf = ReadBytes(h, start, want);
+                        if (buf == null) continue;
+                        for (int i = 0; i + pat.Length <= buf.Length; i++)
+                        {
+                            if (buf[i] != pat[0]) continue;
+                            bool ok = true;
+                            for (int j = 1; j < pat.Length; j++) { if (buf[i + j] != pat[j]) { ok = false; break; } }
+                            if (ok) hits.Add(start + i);
+                        }
+                    }
+                }
+                long next = baseAddr + size;
+                if (next <= addr) break;
+                addr = next;
+            }
+            return hits;
+        }
+
+        private static List<long> ScanForKeys(IntPtr h, HashSet<ulong> keys)
+        {
+            var hits = new List<long>();
+            long addr = 0;
+            Native.MEMORY_BASIC_INFORMATION mbi;
+            while (Native.VirtualQueryEx(h, new IntPtr(addr), out mbi, new IntPtr(Marshal.SizeOf(typeof(Native.MEMORY_BASIC_INFORMATION)))) != IntPtr.Zero)
+            {
+                long baseAddr = mbi.BaseAddress.ToInt64();
+                long size = mbi.RegionSize.ToInt64();
+                if (size <= 0) break;
+                bool usable = mbi.State == Native.MEM_COMMIT && mbi.Type == Native.MEM_PRIVATE &&
+                              (mbi.Protect == Native.PAGE_READWRITE || mbi.Protect == Native.PAGE_EXECUTE_READWRITE ||
+                               mbi.Protect == Native.PAGE_WRITECOPY || mbi.Protect == Native.PAGE_EXECUTE_WRITECOPY);
+                if (usable)
+                {
+                    for (long at = baseAddr; at < baseAddr + size; at += Chunk)
+                    {
+                        long start = at > baseAddr + Overlap ? at - Overlap : baseAddr;
+                        int want = (int)Math.Min(Chunk + Overlap, baseAddr + size - start);
+                        byte[] buf = ReadBytes(h, start, want);
+                        if (buf == null) continue;
+                        int off = (int)((8 - (start & 7)) & 7);
+                        for (int j = off; j + 8 <= buf.Length; j += 8)
+                        {
+                            ulong v = BitConverter.ToUInt64(buf, j);
+                            if (keys.Contains(v)) hits.Add(start + j);
+                        }
+                    }
+                }
+                long next = baseAddr + size;
+                if (next <= addr) break;
+                addr = next;
+            }
+            return hits;
+        }
+
+        private static List<long> FindLuaStringObjects(IntPtr h, string text)
+        {
+            byte[] pat = Encoding.ASCII.GetBytes(text + "\0");
+            var result = new List<long>();
+            foreach (long hit in ScanForBytes(h, pat))
+            {
+                long obj = hit - 0x18;
+                byte[] hdr = ReadBytes(h, obj, 0x18);
+                if (hdr == null) continue;
+                if (hdr[9] != 4) continue;
+                if (BitConverter.ToUInt32(hdr, 0x14) != (uint)text.Length) continue;
+                result.Add(obj);
+            }
+            return result;
+        }
+
+        private static bool WriteLuaString(IntPtr h, long dataAddr, string s)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes(s);
+            IntPtr written;
+            if (!Native.WriteProcessMemory(h, new IntPtr(dataAddr), bytes, new IntPtr(bytes.Length), out written))
+                return false;
+            if (written.ToInt64() != bytes.Length) return false;
+            byte[] zero = new byte[] { 0 };
+            Native.WriteProcessMemory(h, new IntPtr(dataAddr + bytes.Length), zero, new IntPtr(1), out written);
+            Native.WriteProcessMemory(h, new IntPtr(dataAddr - 4), BitConverter.GetBytes((uint)bytes.Length), new IntPtr(4), out written);
+            return true;
+        }
+
+        private static void PatchGrade(IntPtr h, decimal[] vals, bool scanOnly, ref int hits, ref int writes)
+        {
+            var objs = FindLuaStringObjects(h, "grade");
+            if (objs.Count == 0) return;
+            var keys = new HashSet<ulong>();
+            foreach (long o in objs) keys.Add(TagStr | (ulong)o);
+            var refs = ScanForKeys(h, keys);
+            foreach (long r in refs)
+            {
+                ulong vb;
+                if (!TryReadU64(h, r - 8, out vb)) continue;
+                if ((vb & TagMask) != TagStr) continue;
+                long so = (long)(vb & (ulong)PtrMask);
+                uint len;
+                if (!TryReadU32(h, so + 0x14, out len)) continue;
+                if (len < 5 || len > 80) continue;
+                byte[] data = ReadBytes(h, so + 0x18, (int)len);
+                if (data == null) continue;
+                string old = Encoding.ASCII.GetString(data);
+                if (!IsOddsString(old)) continue;
+                hits++;
+                if (LastOldGrade.Length == 0) LastOldGrade = old;
+                if (scanOnly) continue;
+                string ns = FormatOdds(vals, old.Length);
+                if (ns.Length > old.Length) continue;
+                if (WriteLuaString(h, so, ns)) writes++;
+            }
+        }
+
+        public static string FormatOdds(decimal[] vals, int maxLen)
+        {
+            string[] parts = new string[5];
+            for (int i = 0; i < 5; i++)
+            {
+                string s = (vals[i] / 100m).ToString("0.####", CultureInfo.InvariantCulture);
+                if (s == "") s = "0";
+                parts[i] = s;
+            }
+            string outp = string.Join(":", parts);
+            if (outp.Length > maxLen)
+            {
+                for (int p = 3; p >= 1; p--)
+                {
+                    for (int i = 0; i < 5; i++)
+                    {
+                        string fmt = "0." + new string('#', p);
+                        string s = (vals[i] / 100m).ToString(fmt, CultureInfo.InvariantCulture);
+                        if (s == "") s = "0";
+                        parts[i] = s;
+                    }
+                    outp = string.Join(":", parts);
+                    if (outp.Length <= maxLen) break;
+                }
+            }
+            if (outp.Length > maxLen) outp = outp.Substring(0, maxLen);
+            return outp;
         }
 
         private static bool LooksLikeLuaString(IntPtr h, long dataAddr, int len)
