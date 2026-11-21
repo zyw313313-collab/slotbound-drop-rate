@@ -1,9 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
-using System.Runtime.InteropServices;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -13,328 +12,277 @@ namespace SlotboundDropRate
     internal static class Program
     {
         [STAThread]
-        private static void Main(string[] args)
+        private static int Main(string[] args)
         {
-            foreach (string a in args)
+            bool scan = false;
+            foreach (string arg in args)
             {
-                if (a == "--lang=en" || a == "--english") L.Zh = false;
-                if (a == "--lang=zh" || a == "--chinese") L.Zh = true;
+                switch (arg)
+                {
+                    case "--lang=en":
+                    case "--english": L.Zh = false; break;
+                    case "--lang=zh":
+                    case "--chinese": L.Zh = true; break;
+                    case "--scan": scan = true; break;
+                    default:
+                        Console.Error.WriteLine("Usage: SlotboundDropRate [--scan] [--lang=en|--lang=zh]");
+                        return 2;
+                }
             }
 
-            if (args.Length > 0 && args[0] == "--scan")
-            {
-                ScanCli();
-                return;
-            }
-            if (args.Length > 0 && args[0] == "--selftest")
-            {
-                SelfTest();
-                return;
-            }
+            if (scan) return ScanCli();
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm());
+            using (var form = new MainForm()) Application.Run(form);
+            return 0;
         }
 
-        private static void SelfTest()
+        private static int ScanCli()
         {
-            string log = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(Application.ExecutablePath), "selftest.txt");
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            string output;
+            int exitCode = 0;
             try
             {
-                IntPtr buf = Marshal.AllocHGlobal(0x200);
-                for (int i = 0; i < 0x200; i++) Marshal.WriteByte(buf, i, 0);
-                Marshal.WriteByte(buf, 9, 4);
-                Marshal.WriteInt32(buf, 0x14, 26);
-                byte[] s = Encoding.ASCII.GetBytes("0.8:0.15:0.045:0.004:0.001");
-                Marshal.Copy(s, 0, new IntPtr(buf.ToInt64() + 0x18), s.Length);
-
-                IntPtr h = Native.OpenProcess(
-                    Native.PROCESS_VM_READ | Native.PROCESS_VM_WRITE | Native.PROCESS_VM_OPERATION | Native.PROCESS_QUERY_INFORMATION,
-                    false, Process.GetCurrentProcess().Id);
-                sb.AppendLine("self handle=" + h);
-                int a, b, c, d;
-                Patcher.Scan(h, "0.8:0.15:0.045:0.004:0.001", "0.5:0.3:0.1:0.07:0.03", false, false, out a, out b, out c, out d);
-                sb.AppendLine("str hits=" + a + " writes=" + b + " num hits=" + c + " writes=" + d);
-                int len = Marshal.ReadInt32(buf, 0x14);
-                sb.AppendLine("len after=" + len);
-                byte[] after = new byte[32];
-                Marshal.Copy(new IntPtr(buf.ToInt64() + 0x18), after, 0, 32);
-                sb.AppendLine("data after=" + Encoding.ASCII.GetString(after).TrimEnd('\0'));
-                Native.CloseHandle(h);
-                Marshal.FreeHGlobal(buf);
-            }
-            catch (Exception ex) { sb.AppendLine("异常 " + ex); }
-            System.IO.File.WriteAllText(log, sb.ToString(), Encoding.UTF8);
-        }
-
-        private static void ScanCli()
-        {
-            string log = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(Application.ExecutablePath), "scan_result.txt");
-            try
-            {
-                Process[] ps = Process.GetProcessesByName("Slotbound");
-                if (ps.Length == 0)
+                using (RaritySession session = RaritySession.Connect())
                 {
-                    var sb = new System.Text.StringBuilder();
-                    sb.AppendLine("GetProcessesByName=0; session=" + Process.GetCurrentProcess().SessionId + " clr=" + Environment.Version);
-                    foreach (Process p in Process.GetProcesses())
-                    {
-                        string n = "";
-                        string e2 = "";
-                        try { n = p.ProcessName; } catch (Exception ex) { e2 = ex.GetType().Name; }
-                        sb.AppendLine("  " + p.Id + " [" + n + "] " + e2);
-                    }
-                    System.IO.File.WriteAllText(log, sb.ToString());
-                    return;
+                    double[] weights = session.ReadWeights();
+                    output = L.T("仅扫描：已读取当前爆率（未写入）", "Scan only: current drop rates read (no writes)")
+                        + " | PID " + session.ProcessId + Environment.NewLine + Odds.Format(weights);
                 }
-                IntPtr h = Native.OpenProcess(
-                    Native.PROCESS_VM_READ | Native.PROCESS_VM_WRITE | Native.PROCESS_VM_OPERATION | Native.PROCESS_QUERY_INFORMATION,
-                    false, ps[0].Id);
-                if (h == IntPtr.Zero) { System.IO.File.WriteAllText(log, "OpenProcess failed " + Marshal.GetLastWin32Error()); return; }
-                int a, b, c, d;
-                Patcher.Scan(h, "0.8:0.15:0.045:0.004:0.001", "0.5:0.3:0.1:0.07:0.03", false, false, out a, out b, out c, out d);
-                Native.CloseHandle(h);
-                System.IO.File.WriteAllText(log, string.Format(
-                    "pid={0}\r\nstring_hits={1}\r\nstring_writes={2}\r\ngrade_old={3}\r\ndouble_hits={4}", ps[0].Id, a, b, Patcher.LastOldGrade, c));
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                try { System.IO.File.WriteAllText(log, "异常 " + ex); } catch { }
+                output = L.T("仅扫描失败（未写入）：", "Scan failed (no writes): ") + L.Error(error);
+                exitCode = 1;
             }
+
+            try
+            {
+                File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scan_result.txt"),
+                    output + Environment.NewLine, Encoding.UTF8);
+            }
+            catch (Exception)
+            {
+                Console.Error.WriteLine(L.T("无法写入 scan_result.txt。", "Could not write scan_result.txt."));
+                if (exitCode == 0) exitCode = 2;
+            }
+
+            Console.WriteLine(output);
+            return exitCode;
         }
     }
 
-    /// <summary>Runtime language switch. Chinese by default, English for non-Chinese systems.</summary>
     internal static class L
     {
-        public static bool Zh;
-        static L()
-        {
-            string two = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-            Zh = two == "zh";
-        }
+        public static bool Zh = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
+
         public static string T(string zh, string en) { return Zh ? zh : en; }
+
+        public static string Error(Exception error)
+        {
+            var rarityError = error as RarityException;
+            return rarityError != null ? T(rarityError.Chinese, rarityError.Message)
+                : T("操作意外失败。", "The operation failed unexpectedly.");
+        }
     }
 
-    internal static class Native
+    internal static class Odds
     {
-        public const uint PROCESS_VM_READ = 0x0010;
-        public const uint PROCESS_VM_WRITE = 0x0020;
-        public const uint PROCESS_VM_OPERATION = 0x0008;
-        public const uint PROCESS_QUERY_INFORMATION = 0x0400;
+        private static readonly string[] GradeZh = { "普通", "高级", "稀有", "传说", "棱彩" };
+        private static readonly string[] GradeEn = { "Normal", "Advanced", "Rare", "Legendary", "Prismatic" };
+        public const int Count = 5;
 
-        public const uint MEM_COMMIT = 0x1000;
-        public const uint MEM_PRIVATE = 0x20000;
-        public const uint PAGE_READWRITE = 0x04;
-        public const uint PAGE_EXECUTE_READWRITE = 0x40;
-        public const uint PAGE_WRITECOPY = 0x08;
-        public const uint PAGE_EXECUTE_WRITECOPY = 0x80;
+        public static string Grade(int index) { return L.T(GradeZh[index], GradeEn[index]); }
 
-        [StructLayout(LayoutKind.Sequential)]
-        public struct MEMORY_BASIC_INFORMATION
+        public static double[] ToWeights(decimal[] percentages)
         {
-            public IntPtr BaseAddress;
-            public IntPtr AllocationBase;
-            public uint AllocationProtect;
-            public IntPtr RegionSize;
-            public uint State;
-            public uint Protect;
-            public uint Type;
+            if (percentages.Length != Count) return null;
+
+            var weights = new double[Count];
+            decimal sum = 0m;
+            for (int index = 0; index < Count; index++)
+            {
+                decimal percent = percentages[index];
+                if (percent < 0m || percent > 100m) return null;
+                sum += percent;
+                weights[index] = (double)(percent / 100m);
+            }
+            return sum == 100m ? weights : null;
         }
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool CloseHandle(IntPtr h);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool ReadProcessMemory(IntPtr h, IntPtr addr, byte[] buf, IntPtr size, out IntPtr read);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool WriteProcessMemory(IntPtr h, IntPtr addr, byte[] buf, IntPtr size, out IntPtr written);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr VirtualQueryEx(IntPtr h, IntPtr addr, out MEMORY_BASIC_INFORMATION mbi, IntPtr len);
+        public static string Format(double[] weights)
+        {
+            var rows = new string[Count];
+            for (int index = 0; index < Count; index++)
+            {
+                rows[index] = Grade(index) + ": "
+                    + (weights[index] * 100d).ToString("G15", CultureInfo.CurrentCulture) + "%";
+            }
+            return string.Join(Environment.NewLine, rows);
+        }
     }
 
     internal sealed class MainForm : Form
     {
-        private static readonly string[] GradeZh = { "普通", "高级", "稀有", "传说", "棱彩" };
-        private static readonly string[] GradeEn = { "Normal", "Advanced", "Rare", "Legendary", "Prismatic" };
-        private static readonly decimal[] Defaults = { 80m, 15m, 4.5m, 0.4m, 0.1m };
-        private const string DefaultOdds = "0.8:0.15:0.045:0.004:0.001";
+        private enum Operation { Read, Apply, Restore }
 
-        private readonly NumericUpDown[] _inputs = new NumericUpDown[5];
-        private readonly Label[] _gradeLabels = new Label[5];
-        private readonly TextBox _oddsBox;
-        private readonly Label _status;
-        private readonly Label _conn;
-        private readonly CheckBox _auto;
-        private readonly CheckBox _numChk;
-        private readonly Button _applyBtn;
-        private readonly Button _restoreBtn;
-        private readonly Button _scanBtn;
-        private readonly Timer _timer;
+        private static readonly Color Accent = Color.FromArgb(255, 160, 210);
+        private static readonly Color Muted = Color.FromArgb(174, 168, 191);
+        private readonly TextBox[] _inputs = new TextBox[Odds.Count];
+        private readonly Label[] _gradeLabels = new Label[Odds.Count];
         private readonly Label _title;
         private readonly Label _sub;
         private readonly GroupBox _group;
-        private readonly Label _info;
-        private readonly Label _oddsLab;
+        private readonly GroupBox _readbackGroup;
+        private readonly Label _readbackText;
+        private readonly Label _status;
+        private readonly Label _conn;
         private readonly Label _tip;
-        private readonly LinkLabel _link;
+        private readonly LinkLabel _repoLink;
         private readonly LinkLabel _langLink;
+        private readonly Button _readBtn;
+        private readonly Button _applyBtn;
+        private readonly Button _restoreBtn;
+        private readonly Timer _timer;
+        private readonly object _sessionGate = new object();
 
-        private Process _proc;
-        private IntPtr _handle = IntPtr.Zero;
+        private RaritySession _session;
+        private bool _disposed;
+        private double[] _verifiedWeights;
+        private Func<string> _statusText = delegate
+        {
+            return L.T("进入游戏后，点击“读取当前爆率”。", "Start the game, then select Read current odds.");
+        };
         private bool _busy;
-        private string _lastNew = "";
+        private bool _closeRequested;
+        private bool _canApply;
 
         public MainForm()
         {
-            Text = L.T("Slotbound 爆率调节", "Slotbound Drop Rate");
-            ClientSize = new Size(600, 526);
+            ClientSize = new Size(600, 444);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Microsoft YaHei UI", 9F);
             BackColor = Color.FromArgb(28, 26, 38);
             ForeColor = Color.FromArgb(235, 230, 245);
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
 
-            _title = new Label();
-            _title.Font = new Font("Microsoft YaHei UI", 15F, FontStyle.Bold);
-            _title.ForeColor = Color.FromArgb(255, 160, 210);
-            _title.SetBounds(14, 10, 420, 32);
-            Controls.Add(_title);
-
-            _langLink = new LinkLabel();
-            _langLink.SetBounds(520, 12, 66, 22);
-            _langLink.LinkColor = Color.FromArgb(255, 160, 210);
+            _title = MakeLabel(14, 10, 420, 32, Accent);
+            _title.Font = new Font(Font.FontFamily, 15F, FontStyle.Bold);
+            _sub = MakeLabel(16, 44, 560, 24, Muted);
+            _langLink = MakeLink(520, 14, 66);
             _langLink.LinkClicked += delegate { L.Zh = !L.Zh; ApplyLanguage(); };
-            Controls.Add(_langLink);
 
-            _sub = new Label();
-            _sub.ForeColor = Color.FromArgb(170, 165, 185);
-            _sub.SetBounds(16, 44, 560, 20);
-            Controls.Add(_sub);
+            _group = MakeGroup(14, 73, 272, 207);
+            _readbackGroup = MakeGroup(298, 73, 288, 207);
+            _readbackText = new Label();
+            _readbackText.SetBounds(14, 27, 260, 164);
+            _readbackGroup.Controls.Add(_readbackText);
 
-            _group = new GroupBox();
-            _group.ForeColor = Color.FromArgb(210, 205, 225);
-            _group.SetBounds(14, 70, 280, 240);
-            Controls.Add(_group);
-
-            for (int i = 0; i < 5; i++)
+            for (int index = 0; index < Odds.Count; index++)
             {
-                var lab = new Label();
-                lab.SetBounds(12, 30 + i * 38, 78, 24);
-                _group.Controls.Add(lab);
-                _gradeLabels[i] = lab;
+                var label = new Label();
+                label.SetBounds(14, 29 + index * 33, 88, 22);
+                _group.Controls.Add(label);
+                _gradeLabels[index] = label;
 
-                var num = new NumericUpDown();
-                num.DecimalPlaces = 3;
-                num.Minimum = 0m;
-                num.Maximum = 100m;
-                num.Increment = 0.1m;
-                num.Value = Defaults[i];
-                num.SetBounds(92, 28 + i * 38, 92, 26);
-                num.BackColor = Color.FromArgb(45, 42, 58);
-                num.ForeColor = Color.White;
-                num.BorderStyle = BorderStyle.FixedSingle;
-                _group.Controls.Add(num);
-                _inputs[i] = num;
+                var input = new TextBox();
+                input.SetBounds(104, 27 + index * 33, 106, 24);
+                input.TextAlign = HorizontalAlignment.Right;
+                input.MaxLength = 32;
+                input.BackColor = Color.FromArgb(45, 42, 58);
+                input.ForeColor = Color.White;
+                input.BorderStyle = BorderStyle.FixedSingle;
+                _group.Controls.Add(input);
+                _inputs[index] = input;
 
-                var pct = new Label();
-                pct.Text = "%";
-                pct.SetBounds(188, 30 + i * 38, 20, 22);
-                _group.Controls.Add(pct);
+                var percent = new Label();
+                percent.Text = "%";
+                percent.SetBounds(217, 29 + index * 33, 22, 22);
+                _group.Controls.Add(percent);
             }
 
-            _info = new Label();
-            _info.ForeColor = Color.FromArgb(150, 146, 168);
-            _info.SetBounds(310, 78, 276, 48);
-            Controls.Add(_info);
+            _readBtn = MakeButton(14, 154);
+            _readBtn.Click += async delegate { await RunAsync(Operation.Read, null); };
+            _applyBtn = MakeButton(179, 122);
+            _applyBtn.Click += async delegate
+            {
+                double[] weights = ReadDraft();
+                if (weights == null)
+                {
+                    _statusText = delegate
+                    {
+                        return L.T("请输入 5 个 0 至 100 之间的百分比，总和须为 100%。",
+                                   "Enter five percentages from 0 to 100 that add up to 100%.");
+                    };
+                    UpdateStatus();
+                    return;
+                }
+                await RunAsync(Operation.Apply, weights);
+            };
+            _restoreBtn = MakeButton(312, 147);
+            _restoreBtn.Click += async delegate { await RunAsync(Operation.Restore, null); };
 
-            _oddsLab = new Label();
-            _oddsLab.ForeColor = Color.FromArgb(200, 196, 215);
-            _oddsLab.SetBounds(310, 132, 280, 20);
-            Controls.Add(_oddsLab);
-
-            _oddsBox = new TextBox();
-            _oddsBox.Text = DefaultOdds;
-            _oddsBox.SetBounds(310, 154, 276, 26);
-            _oddsBox.BackColor = Color.FromArgb(45, 42, 58);
-            _oddsBox.ForeColor = Color.White;
-            _oddsBox.BorderStyle = BorderStyle.FixedSingle;
-            Controls.Add(_oddsBox);
-
-            _applyBtn = MakeButton(14, 324, 120);
-            _applyBtn.Click += delegate { Apply(false); };
-            Controls.Add(_applyBtn);
-
-            _restoreBtn = MakeButton(144, 324, 120);
-            _restoreBtn.Click += delegate { Restore(); };
-            Controls.Add(_restoreBtn);
-
-            _scanBtn = MakeButton(274, 324, 120);
-            _scanBtn.Click += delegate { Apply(true); };
-            Controls.Add(_scanBtn);
-
-            _auto = new CheckBox();
-            _auto.SetBounds(14, 366, 200, 24);
-            _auto.ForeColor = Color.FromArgb(210, 205, 225);
-            Controls.Add(_auto);
-
-            _numChk = new CheckBox();
-            _numChk.SetBounds(230, 366, 220, 24);
-            _numChk.ForeColor = Color.FromArgb(170, 165, 185);
-            Controls.Add(_numChk);
-
-            _status = new Label();
-            _status.SetBounds(14, 398, 572, 64);
+            _status = MakeLabel(14, 329, 572, 54, ForeColor);
             _status.BorderStyle = BorderStyle.FixedSingle;
             _status.Padding = new Padding(8);
-            _status.ForeColor = Color.FromArgb(220, 216, 235);
-            Controls.Add(_status);
-
-            _conn = new Label();
-            _conn.SetBounds(14, 470, 320, 22);
-            _conn.ForeColor = Color.FromArgb(160, 156, 178);
-            Controls.Add(_conn);
-
-            _link = new LinkLabel();
-            _link.SetBounds(430, 470, 160, 22);
-            _link.LinkColor = Color.FromArgb(255, 160, 210);
-            _link.LinkClicked += delegate { try { Process.Start("https://github.com/zyw313313-collab/slotbound-drop-rate"); } catch { } };
-            Controls.Add(_link);
-
-            _tip = new Label();
-            _tip.ForeColor = Color.FromArgb(140, 136, 158);
-            _tip.SetBounds(14, 496, 572, 22);
-            Controls.Add(_tip);
+            _conn = MakeLabel(14, 389, 406, 22, Muted);
+            _repoLink = MakeLink(444, 389, 142);
+            _repoLink.LinkClicked += delegate
+            {
+                try { Process.Start("https://github.com/zyw313313-collab/slotbound-drop-rate"); }
+                catch (Exception) { }
+            };
+            _tip = MakeLabel(14, 416, 572, 22, Muted);
 
             _timer = new Timer();
             _timer.Interval = 1000;
-            _timer.Tick += delegate { OnTick(); };
+            _timer.Tick += delegate { CheckForExit(); };
             _timer.Start();
-
-            FormClosing += delegate { Detach(); };
-
+            ActiveControl = _readBtn;
             ApplyLanguage();
         }
 
-        private Button MakeButton(int x, int y, int w)
+        private Label MakeLabel(int left, int top, int width, int height, Color color)
         {
-            var b = new Button();
-            b.SetBounds(x, y, w, 32);
-            b.FlatStyle = FlatStyle.Flat;
-            b.BackColor = Color.FromArgb(58, 52, 76);
-            b.ForeColor = Color.White;
-            b.FlatAppearance.BorderColor = Color.FromArgb(110, 100, 140);
-            return b;
+            var label = new Label();
+            label.ForeColor = color;
+            label.SetBounds(left, top, width, height);
+            Controls.Add(label);
+            return label;
+        }
+
+        private LinkLabel MakeLink(int left, int top, int width)
+        {
+            var link = new LinkLabel();
+            link.LinkColor = Accent;
+            link.SetBounds(left, top, width, 22);
+            Controls.Add(link);
+            return link;
+        }
+
+        private GroupBox MakeGroup(int left, int top, int width, int height)
+        {
+            var group = new GroupBox();
+            group.ForeColor = ForeColor;
+            group.SetBounds(left, top, width, height);
+            Controls.Add(group);
+            return group;
+        }
+
+        private Button MakeButton(int left, int width)
+        {
+            var button = new Button();
+            button.SetBounds(left, 289, width, 32);
+            button.FlatStyle = FlatStyle.Flat;
+            button.BackColor = Color.FromArgb(58, 52, 76);
+            button.ForeColor = Color.White;
+            button.FlatAppearance.BorderColor = Color.FromArgb(110, 100, 140);
+            Controls.Add(button);
+            return button;
         }
 
         private void ApplyLanguage()
@@ -342,570 +290,208 @@ namespace SlotboundDropRate
             Text = L.T("Slotbound 爆率调节", "Slotbound Drop Rate");
             _title.Text = Text;
             _langLink.Text = L.T("English", "中文");
-            _sub.Text = L.T("运行时修改本局稀有度权重，不改游戏文件、不改存档",
-                            "Adjust this run's rarity odds. No file edits, no save edits.");
-            _group.Text = L.T(" 爆率（%） ", " Drop rate (%) ");
-            for (int i = 0; i < 5; i++)
-                _gradeLabels[i].Text = L.Zh ? GradeZh[i] : GradeEn[i];
-            _info.Text = L.T("默认值 = 你存档当前的爆率\r\n（元升级全满：传说 0.4%、棱彩 0.1%）",
-                             "Defaults = your save's odds\r\n(Legendary 0.4%, Prismatic 0.1%)");
-            _oddsLab.Text = L.T("当前爆率串（内存里用来定位的原文）", "Current odds string (locator)");
+            _sub.Text = L.T("调整本局常规稀有度爆率，不改游戏文件、不改存档。",
+                            "Adjust regular rarity odds for this run. No game file or save edits.");
+            _group.Text = L.T(" 待应用爆率（%） ", " Odds to apply (%) ");
+            _readbackGroup.Text = L.T(" 已验证的爆率 ", " Verified odds ");
+            for (int index = 0; index < Odds.Count; index++)
+            {
+                _gradeLabels[index].Text = Odds.Grade(index);
+                _inputs[index].AccessibleName = Odds.Grade(index);
+            }
+            _readBtn.Text = L.T("读取当前爆率", "Read current odds");
             _applyBtn.Text = L.T("应用一次", "Apply once");
-            _restoreBtn.Text = L.T("恢复默认", "Restore defaults");
-            _scanBtn.Text = L.T("仅扫描", "Scan only");
-            _auto.Text = L.T("自动（每秒补一次）", "Auto (every second)");
-            _numChk.Text = L.T("同时改数值表（实验）", "Also patch number tables (experimental)");
-            _conn.Text = _proc != null && !_proc.HasExited
-                ? L.T("已连接 Slotbound (PID " + _proc.Id + ")", "Connected to Slotbound (PID " + _proc.Id + ")")
-                : L.T("未连接游戏", "Not connected");
-            _link.Text = L.T("GitHub 项目主页", "GitHub project");
-            _tip.Text = L.T("只对当前游戏进程生效；重启游戏后重新打开本工具。建议先备份存档。",
-                            "Affects the running process only; reopen after restarting the game. Back up your save first.");
-            _status.Text = L.T("等待操作", "Ready");
+            _restoreBtn.Text = L.T("恢复原始爆率", "Restore original");
+            _repoLink.Text = L.T("GitHub 项目主页", "GitHub project");
+            _tip.Text = L.T("仅支持 Steam 26791687。更改仅对当前进程生效。建议先备份存档。",
+                            "Steam 26791687 only. Changes affect this process only. Back up your save first.");
+            RefreshView();
         }
 
-        private void OnTick()
+        private decimal? ParsePercentage(string text)
         {
-            if (_proc == null || _proc.HasExited)
-            {
-                _proc = null;
-                if (_handle != IntPtr.Zero) { Native.CloseHandle(_handle); _handle = IntPtr.Zero; }
-                _conn.Text = L.T("未连接游戏", "Not connected");
-            }
-            if (_auto.Checked && !_busy)
-                Apply(true);
+            decimal percent;
+            if (!decimal.TryParse(text.Trim(), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
+                                  CultureInfo.CurrentCulture, out percent)) return null;
+            return percent;
         }
 
-        private bool Attach()
+        private double[] ReadDraft()
         {
-            if (_proc != null && !_proc.HasExited) return true;
-            Process[] ps = Process.GetProcessesByName("Slotbound");
-            if (ps.Length == 0)
+            var percentages = new decimal[Odds.Count];
+            for (int index = 0; index < Odds.Count; index++)
             {
-                _conn.Text = L.T("未找到 Slotbound.exe，请先启动游戏", "Slotbound.exe not found. Start the game first.");
-                return false;
+                decimal? percent = ParsePercentage(_inputs[index].Text);
+                if (!percent.HasValue) return null;
+                percentages[index] = percent.Value;
             }
-            _proc = ps[0];
-            _handle = Native.OpenProcess(
-                Native.PROCESS_VM_READ | Native.PROCESS_VM_WRITE | Native.PROCESS_VM_OPERATION | Native.PROCESS_QUERY_INFORMATION,
-                false, _proc.Id);
-            if (_handle == IntPtr.Zero)
+            return Odds.ToWeights(percentages);
+        }
+
+        private async Task RunAsync(Operation operation, double[] weights)
+        {
+            if (_busy) return;
+            CheckForExit();
+            if (operation != Operation.Read && (_session == null
+                || (operation == Operation.Apply && !_canApply)
+                || (operation == Operation.Restore && !_session.HasOriginal))) return;
+
+            _busy = true;
+            _statusText = delegate
             {
-                _conn.Text = L.T("无法打开进程（错误 " + Marshal.GetLastWin32Error() + "），请用管理员身份运行",
-                                 "Cannot open process (error " + Marshal.GetLastWin32Error() + "). Run as administrator.");
-                _proc = null;
-                return false;
+                switch (operation)
+                {
+                    case Operation.Read: return L.T("正在读取…", "Reading…");
+                    case Operation.Apply: return L.T("正在应用并验证…", "Applying and verifying…");
+                    default: return L.T("正在恢复并验证…", "Restoring and verifying…");
+                }
+            };
+            RefreshView();
+            try
+            {
+                double[] observed = await Task.Run(delegate
+                {
+                    lock (_sessionGate)
+                    {
+                        return _disposed ? null : Perform(operation, weights);
+                    }
+                });
+                if (_disposed) return;
+                _verifiedWeights = observed;
+                _canApply = true;
+                for (int index = 0; index < Odds.Count; index++)
+                {
+                    _inputs[index].Text = ((decimal)(_verifiedWeights[index] * 100d))
+                        .ToString("0.############################", CultureInfo.CurrentCulture);
+                }
+                _statusText = delegate
+                {
+                    switch (operation)
+                    {
+                        case Operation.Read: return L.T("已读取当前爆率，未写入。", "Current odds read. Nothing was written.");
+                        case Operation.Apply: return L.T("已应用并验证实际爆率。", "Applied and verified the live odds.");
+                        default: return L.T("已恢复并验证原始爆率。", "Restored and verified the original odds.");
+                    }
+                };
             }
-            _conn.Text = L.T("已连接 Slotbound (PID " + _proc.Id + ")", "Connected to Slotbound (PID " + _proc.Id + ")");
+            catch (Exception error)
+            {
+                if (_disposed) return;
+                _canApply = false;
+                _verifiedWeights = null;
+                _statusText = delegate { return L.T("操作失败：", "Operation failed: ") + L.Error(error); };
+            }
+            finally
+            {
+                _busy = false;
+                if (!_disposed)
+                {
+                    if (!CheckForExit()) RefreshView();
+                    if (_closeRequested)
+                    {
+                        _closeRequested = false;
+                        Close();
+                    }
+                }
+            }
+        }
+
+        private double[] Perform(Operation operation, double[] weights)
+        {
+            if (operation == Operation.Apply) return _session.Apply(weights);
+            if (operation == Operation.Restore) return _session.Restore();
+            if (_session != null && _session.HasOriginal) return _session.ReadWeights();
+
+            RaritySession next = RaritySession.Connect();
+            double[] observed;
+            try { observed = next.ReadWeights(); }
+            catch
+            {
+                next.Dispose();
+                throw;
+            }
+            Detach();
+            _session = next;
+            return observed;
+        }
+
+        private bool CheckForExit()
+        {
+            if (_busy || _session == null || !_session.HasExited) return false;
+            Detach();
+            _verifiedWeights = null;
+            _canApply = false;
+            foreach (TextBox input in _inputs) input.Clear();
+            _statusText = delegate
+            {
+                return L.T("游戏已退出。重新启动游戏后，请再次读取当前爆率。",
+                           "The game exited. Restart the game, then read the current odds again.");
+            };
+            RefreshView();
             return true;
         }
 
         private void Detach()
         {
-            if (_handle != IntPtr.Zero) { Native.CloseHandle(_handle); _handle = IntPtr.Zero; }
-            _proc = null;
+            if (_session == null) return;
+            _session.Dispose();
+            _session = null;
         }
 
-        private decimal[] ReadValues()
+        private void RefreshView()
         {
-            var vals = new decimal[5];
-            decimal sum = 0m;
-            for (int i = 0; i < 5; i++) { vals[i] = _inputs[i].Value; sum += vals[i]; }
-            if (sum <= 0m) return null;
-            if (Math.Abs(sum - 100m) > 0.001m)
-                for (int i = 0; i < 5; i++) vals[i] = vals[i] * 100m / sum;
-            return vals;
+            _readBtn.Enabled = !_busy;
+            _applyBtn.Enabled = !_busy && _canApply;
+            _restoreBtn.Enabled = !_busy && _session != null && _session.HasOriginal;
+            foreach (TextBox input in _inputs) input.Enabled = !_busy && _canApply;
+            _conn.Text = _busy ? L.T("正在处理…", "Working…")
+                : _session == null ? L.T("未连接游戏", "Not connected")
+                : L.T("已连接 Slotbound", "Connected to Slotbound") + " (PID " + _session.ProcessId + ")";
+            _readbackText.Text = _verifiedWeights == null
+                ? L.T("没有已验证的爆率。", "No verified odds yet.") : Odds.Format(_verifiedWeights);
+            UpdateStatus();
         }
 
-        private static string FormatOdds(decimal[] vals, int maxLen)
+        private void UpdateStatus()
         {
-            string[] parts = new string[5];
-            for (int i = 0; i < 5; i++)
-            {
-                string s = (vals[i] / 100m).ToString("0.####", CultureInfo.InvariantCulture);
-                if (s == "") s = "0";
-                parts[i] = s;
-            }
-            string outp = string.Join(":", parts);
-            if (outp.Length > maxLen)
-            {
-                for (int p = 3; p >= 1; p--)
-                {
-                    for (int i = 0; i < 5; i++)
-                    {
-                        string fmt = "0." + new string('#', p);
-                        string s = (vals[i] / 100m).ToString(fmt, CultureInfo.InvariantCulture);
-                        if (s == "") s = "0";
-                        parts[i] = s;
-                    }
-                    outp = string.Join(":", parts);
-                    if (outp.Length <= maxLen) break;
-                }
-            }
-            if (outp.Length > maxLen) outp = outp.Substring(0, maxLen);
-            return outp;
+            _status.Text = _closeRequested
+                ? L.T("操作完成后关闭…", "Closing after the operation finishes…") : _statusText();
         }
 
-        private void Apply(bool scanOnly)
+        protected override void OnFormClosing(FormClosingEventArgs args)
         {
-            if (_busy) return;
-            if (!Attach()) return;
-            decimal[] vals = ReadValues();
-            if (vals == null)
+            base.OnFormClosing(args);
+            if (args.Cancel) return;
+            if (_busy)
             {
-                _status.Text = L.T("数值无效：至少填一个大于 0 的百分比", "Invalid values: at least one percentage must be > 0.");
+                args.Cancel = true;
+                _closeRequested = true;
+                UpdateStatus();
                 return;
             }
-            string orig = _oddsBox.Text.Trim();
-            if (orig.Length < 5)
+            CheckForExit();
+            if (args.CloseReason == CloseReason.UserClosing && _session != null && _session.HasOriginal)
             {
-                _status.Text = L.T("当前爆率串太短", "Current odds string is too short.");
-                return;
+                DialogResult answer = MessageBox.Show(this,
+                    L.T("关闭不会自动恢复爆率。仍要关闭吗？", "Closing does not restore the original odds. Close anyway?"),
+                    Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                args.Cancel = answer != DialogResult.Yes;
+                if (args.Cancel) UpdateStatus();
             }
-            string newStr = FormatOdds(vals, orig.Length);
-            _lastNew = newStr;
-            _busy = true;
-            SetBusy(true);
-            _status.Text = scanOnly ? L.T("扫描中…", "Scanning…") : L.T("写入中…", "Writing…");
-
-            IntPtr handle = _handle;
-            Task.Factory.StartNew(delegate
-            {
-                int strHits = 0, strWrites = 0, numHits = 0, numWrites = 0;
-                string err = null;
-                try
-                {
-                    Patcher.Scan(handle, orig, newStr, scanOnly, _numChk.Checked, out strHits, out strWrites, out numHits, out numWrites);
-                }
-                catch (Exception ex) { err = ex.Message; }
-                BeginInvoke((Action)delegate
-                {
-                    _busy = false;
-                    SetBusy(false);
-                    if (err != null)
-                    {
-                        _status.Text = L.T("出错：", "Error: ") + err;
-                        return;
-                    }
-                    string head = scanOnly ? L.T("扫描结果", "Scan result") : L.T("已应用", "Applied");
-                    _status.Text = string.Format(L.T(
-                        "{0}\r\n爆率串：匹配 {1} 处，改写 {2} 处\r\n数值表：匹配 {3} 处，改写 {4} 处\r\n新爆率：{5}",
-                        "{0}\r\nOdds string: {1} matched, {2} written\r\nNumber table: {3} matched, {4} written\r\nNew odds: {5}"),
-                        head, strHits, strWrites, numHits, numWrites, newStr);
-                    if (Patcher.LastOldGrade.Length > 0)
-                        _status.Text += L.T("\r\n检测到 grade 旧值：" + Patcher.LastOldGrade,
-                                            "\r\nDetected grade odds: " + Patcher.LastOldGrade);
-                    if (!scanOnly && strWrites == 0 && numWrites == 0)
-                        _status.Text += L.T("\r\n没找到可改的爆率串：先进入一局、拉一次杆再点应用。",
-                                            "\r\nNothing found: enter a run, spin once, then apply again.");
-                });
-            });
         }
 
-        private void Restore()
+        protected override void Dispose(bool disposing)
         {
-            if (_busy) return;
-            if (!Attach()) return;
-            decimal[] vals = ReadValues();
-            if (vals == null) return;
-            string orig = _oddsBox.Text.Trim();
-            string cur = FormatOdds(vals, orig.Length);
-            if (cur == orig)
+            if (disposing)
             {
-                _status.Text = L.T("当前百分比就是默认值，无需恢复", "These are already the defaults.");
-                return;
-            }
-            _busy = true;
-            SetBusy(true);
-            IntPtr handle = _handle;
-            Task.Factory.StartNew(delegate
-            {
-                int a, b, c, d;
-                string err = null;
-                try { Patcher.Scan(handle, cur, orig, false, _numChk.Checked, out a, out b, out c, out d); }
-                catch (Exception ex) { err = ex.Message; a = b = c = d = 0; }
-                BeginInvoke((Action)delegate
+                if (_timer != null) _timer.Dispose();
+                lock (_sessionGate)
                 {
-                    _busy = false;
-                    SetBusy(false);
-                    _status.Text = err != null
-                        ? L.T("恢复出错：", "Restore error: ") + err
-                        : string.Format(L.T("已恢复 {0} 处爆率串", "Restored {0} odds strings"), b);
-                });
-            });
-        }
-
-        private void SetBusy(bool busy)
-        {
-            _applyBtn.Enabled = !busy;
-            _restoreBtn.Enabled = !busy;
-            _scanBtn.Enabled = !busy;
-        }
-    }
-
-    internal static class Patcher
-    {
-        private const int Chunk = 8 * 1024 * 1024;
-        private const int Overlap = 64;
-        private const ulong TagStr = 0xFFFD800000000000UL;
-        private const ulong TagMask = 0xFFFF000000000000UL;
-        private const long PtrMask = 0x00007FFFFFFFFFFF;
-        public static string LastOldGrade = "";
-
-        public static void Scan(IntPtr h, string orig, string newStr, bool scanOnly, bool patchNumbers,
-            out int strHits, out int strWrites, out int numHits, out int numWrites)
-        {
-            strHits = 0; strWrites = 0; numHits = 0; numWrites = 0;
-            LastOldGrade = "";
-            decimal[] gradeVals = ParsePercent(newStr);
-            if (gradeVals != null)
-                PatchGrade(h, gradeVals, scanOnly, ref strHits, ref strWrites);
-            byte[] strPat = Encoding.ASCII.GetBytes(orig);
-            List<byte[]> numPats = new List<byte[]>();
-            numPats.Add(PackDoubles(0.8, 0.15, 0.045, 0.004, 0.001));
-            numPats.Add(PackDoubles(0.82, 0.15, 0.02, 0.001, 0.0002));
-
-            var stringHits = new List<long>();
-            var numHitsByPat = new List<List<long>>();
-            for (int i = 0; i < numPats.Count; i++) numHitsByPat.Add(new List<long>());
-
-            long addr = 0;
-            Native.MEMORY_BASIC_INFORMATION mbi;
-            while (Native.VirtualQueryEx(h, new IntPtr(addr), out mbi, new IntPtr(Marshal.SizeOf(typeof(Native.MEMORY_BASIC_INFORMATION)))) != IntPtr.Zero)
-            {
-                long baseAddr = mbi.BaseAddress.ToInt64();
-                long size = mbi.RegionSize.ToInt64();
-                if (size <= 0) break;
-                bool usable = mbi.State == Native.MEM_COMMIT && mbi.Type == Native.MEM_PRIVATE &&
-                              (mbi.Protect == Native.PAGE_READWRITE || mbi.Protect == Native.PAGE_EXECUTE_READWRITE ||
-                               mbi.Protect == Native.PAGE_WRITECOPY || mbi.Protect == Native.PAGE_EXECUTE_WRITECOPY);
-                if (usable)
-                {
-                    for (long at = baseAddr; at < baseAddr + size; at += Chunk)
-                    {
-                        long start = at > baseAddr + Overlap ? at - Overlap : baseAddr;
-                        int want = (int)Math.Min(Chunk + Overlap, baseAddr + size - start);
-                        byte[] buf = new byte[want];
-                        IntPtr got;
-                        if (!Native.ReadProcessMemory(h, new IntPtr(start), buf, new IntPtr(want), out got) || got.ToInt64() == 0)
-                            continue;
-                        int n = (int)got.ToInt64();
-                        for (int i = 0; i + strPat.Length <= n; i++)
-                        {
-                            if (buf[i] != strPat[0]) continue;
-                            bool ok = true;
-                            for (int j = 1; j < strPat.Length; j++) { if (buf[i + j] != strPat[j]) { ok = false; break; } }
-                            if (ok) stringHits.Add(start + i);
-                        }
-                        for (int p = 0; p < numPats.Count; p++)
-                        {
-                            byte[] np = numPats[p];
-                            for (int i = 0; i + np.Length <= n; i++)
-                            {
-                                if (buf[i] != np[0]) continue;
-                                bool ok = true;
-                                for (int j = 1; j < np.Length; j++) { if (buf[i + j] != np[j]) { ok = false; break; } }
-                                if (ok && ((start + i) % 8) == 0) numHitsByPat[p].Add(start + i);
-                            }
-                        }
-                    }
-                }
-                long next = baseAddr + size;
-                if (next <= addr) break;
-                addr = next;
-            }
-
-            strHits += stringHits.Count;
-            foreach (var list in numHitsByPat) numHits += list.Count;
-            if (scanOnly) return;
-
-            byte[] newBytes = Encoding.ASCII.GetBytes(newStr);
-            foreach (long hit in stringHits)
-            {
-                try
-                {
-                    if (!LooksLikeLuaString(h, hit, strPat.Length)) continue;
-                    if (WriteString(h, hit, newBytes)) strWrites++;
-                }
-                catch { }
-            }
-
-            if (patchNumbers)
-            {
-                for (int p = 0; p < numPats.Count; p++)
-                {
-                    foreach (long hit in numHitsByPat[p])
-                    {
-                        try { if (WriteNumbers(h, hit, newStr)) numWrites++; }
-                        catch { }
-                    }
+                    _disposed = true;
+                    Detach();
                 }
             }
-        }
-
-        private static decimal[] ParsePercent(string s)
-        {
-            string[] parts = s.Split(':');
-            if (parts.Length != 5) return null;
-            decimal[] v = new decimal[5];
-            for (int i = 0; i < 5; i++)
-            {
-                decimal d;
-                if (!decimal.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out d)) return null;
-                v[i] = d * 100m;
-            }
-            return v;
-        }
-
-        private static bool IsOddsString(string s)
-        {
-            string[] parts = s.Split(':');
-            if (parts.Length != 5) return false;
-            double sum = 0;
-            for (int i = 0; i < 5; i++)
-            {
-                double d;
-                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out d)) return false;
-                if (d < 0 || d > 1.0001) return false;
-                sum += d;
-            }
-            return Math.Abs(sum - 1.0) < 0.03;
-        }
-
-        private static byte[] ReadBytes(IntPtr h, long addr, int len)
-        {
-            byte[] buf = new byte[len];
-            IntPtr got;
-            if (!Native.ReadProcessMemory(h, new IntPtr(addr), buf, new IntPtr(len), out got)) return null;
-            return got.ToInt64() == len ? buf : null;
-        }
-
-        private static bool TryReadU64(IntPtr h, long addr, out ulong v)
-        {
-            byte[] b = ReadBytes(h, addr, 8);
-            v = 0;
-            if (b == null) return false;
-            v = BitConverter.ToUInt64(b, 0);
-            return true;
-        }
-
-        private static bool TryReadU32(IntPtr h, long addr, out uint v)
-        {
-            byte[] b = ReadBytes(h, addr, 4);
-            v = 0;
-            if (b == null) return false;
-            v = BitConverter.ToUInt32(b, 0);
-            return true;
-        }
-
-        private static List<long> ScanForBytes(IntPtr h, byte[] pat)
-        {
-            var hits = new List<long>();
-            long addr = 0;
-            Native.MEMORY_BASIC_INFORMATION mbi;
-            while (Native.VirtualQueryEx(h, new IntPtr(addr), out mbi, new IntPtr(Marshal.SizeOf(typeof(Native.MEMORY_BASIC_INFORMATION)))) != IntPtr.Zero)
-            {
-                long baseAddr = mbi.BaseAddress.ToInt64();
-                long size = mbi.RegionSize.ToInt64();
-                if (size <= 0) break;
-                bool usable = mbi.State == Native.MEM_COMMIT && mbi.Type == Native.MEM_PRIVATE &&
-                              (mbi.Protect == Native.PAGE_READWRITE || mbi.Protect == Native.PAGE_EXECUTE_READWRITE ||
-                               mbi.Protect == Native.PAGE_WRITECOPY || mbi.Protect == Native.PAGE_EXECUTE_WRITECOPY);
-                if (usable)
-                {
-                    for (long at = baseAddr; at < baseAddr + size; at += Chunk)
-                    {
-                        long start = at > baseAddr + Overlap ? at - Overlap : baseAddr;
-                        int want = (int)Math.Min(Chunk + Overlap, baseAddr + size - start);
-                        byte[] buf = ReadBytes(h, start, want);
-                        if (buf == null) continue;
-                        for (int i = 0; i + pat.Length <= buf.Length; i++)
-                        {
-                            if (buf[i] != pat[0]) continue;
-                            bool ok = true;
-                            for (int j = 1; j < pat.Length; j++) { if (buf[i + j] != pat[j]) { ok = false; break; } }
-                            if (ok) hits.Add(start + i);
-                        }
-                    }
-                }
-                long next = baseAddr + size;
-                if (next <= addr) break;
-                addr = next;
-            }
-            return hits;
-        }
-
-        private static List<long> ScanForKeys(IntPtr h, HashSet<ulong> keys)
-        {
-            var hits = new List<long>();
-            long addr = 0;
-            Native.MEMORY_BASIC_INFORMATION mbi;
-            while (Native.VirtualQueryEx(h, new IntPtr(addr), out mbi, new IntPtr(Marshal.SizeOf(typeof(Native.MEMORY_BASIC_INFORMATION)))) != IntPtr.Zero)
-            {
-                long baseAddr = mbi.BaseAddress.ToInt64();
-                long size = mbi.RegionSize.ToInt64();
-                if (size <= 0) break;
-                bool usable = mbi.State == Native.MEM_COMMIT && mbi.Type == Native.MEM_PRIVATE &&
-                              (mbi.Protect == Native.PAGE_READWRITE || mbi.Protect == Native.PAGE_EXECUTE_READWRITE ||
-                               mbi.Protect == Native.PAGE_WRITECOPY || mbi.Protect == Native.PAGE_EXECUTE_WRITECOPY);
-                if (usable)
-                {
-                    for (long at = baseAddr; at < baseAddr + size; at += Chunk)
-                    {
-                        long start = at > baseAddr + Overlap ? at - Overlap : baseAddr;
-                        int want = (int)Math.Min(Chunk + Overlap, baseAddr + size - start);
-                        byte[] buf = ReadBytes(h, start, want);
-                        if (buf == null) continue;
-                        int off = (int)((8 - (start & 7)) & 7);
-                        for (int j = off; j + 8 <= buf.Length; j += 8)
-                        {
-                            ulong v = BitConverter.ToUInt64(buf, j);
-                            if (keys.Contains(v)) hits.Add(start + j);
-                        }
-                    }
-                }
-                long next = baseAddr + size;
-                if (next <= addr) break;
-                addr = next;
-            }
-            return hits;
-        }
-
-        private static List<long> FindLuaStringObjects(IntPtr h, string text)
-        {
-            byte[] pat = Encoding.ASCII.GetBytes(text + "\0");
-            var result = new List<long>();
-            foreach (long hit in ScanForBytes(h, pat))
-            {
-                long obj = hit - 0x18;
-                byte[] hdr = ReadBytes(h, obj, 0x18);
-                if (hdr == null) continue;
-                if (hdr[9] != 4) continue;
-                if (BitConverter.ToUInt32(hdr, 0x14) != (uint)text.Length) continue;
-                result.Add(obj);
-            }
-            return result;
-        }
-
-        private static bool WriteLuaString(IntPtr h, long dataAddr, string s)
-        {
-            byte[] bytes = Encoding.ASCII.GetBytes(s);
-            IntPtr written;
-            if (!Native.WriteProcessMemory(h, new IntPtr(dataAddr), bytes, new IntPtr(bytes.Length), out written))
-                return false;
-            if (written.ToInt64() != bytes.Length) return false;
-            byte[] zero = new byte[] { 0 };
-            Native.WriteProcessMemory(h, new IntPtr(dataAddr + bytes.Length), zero, new IntPtr(1), out written);
-            Native.WriteProcessMemory(h, new IntPtr(dataAddr - 4), BitConverter.GetBytes((uint)bytes.Length), new IntPtr(4), out written);
-            return true;
-        }
-
-        private static void PatchGrade(IntPtr h, decimal[] vals, bool scanOnly, ref int hits, ref int writes)
-        {
-            var objs = FindLuaStringObjects(h, "grade");
-            if (objs.Count == 0) return;
-            var keys = new HashSet<ulong>();
-            foreach (long o in objs) keys.Add(TagStr | (ulong)o);
-            var refs = ScanForKeys(h, keys);
-            foreach (long r in refs)
-            {
-                ulong vb;
-                if (!TryReadU64(h, r - 8, out vb)) continue;
-                if ((vb & TagMask) != TagStr) continue;
-                long so = (long)(vb & (ulong)PtrMask);
-                uint len;
-                if (!TryReadU32(h, so + 0x14, out len)) continue;
-                if (len < 5 || len > 80) continue;
-                byte[] data = ReadBytes(h, so + 0x18, (int)len);
-                if (data == null) continue;
-                string old = Encoding.ASCII.GetString(data);
-                if (!IsOddsString(old)) continue;
-                hits++;
-                if (LastOldGrade.Length == 0) LastOldGrade = old;
-                if (scanOnly) continue;
-                string ns = FormatOdds(vals, old.Length);
-                if (ns.Length > old.Length) continue;
-                if (WriteLuaString(h, so, ns)) writes++;
-            }
-        }
-
-        public static string FormatOdds(decimal[] vals, int maxLen)
-        {
-            string[] parts = new string[5];
-            for (int i = 0; i < 5; i++)
-            {
-                string s = (vals[i] / 100m).ToString("0.####", CultureInfo.InvariantCulture);
-                if (s == "") s = "0";
-                parts[i] = s;
-            }
-            string outp = string.Join(":", parts);
-            if (outp.Length > maxLen)
-            {
-                for (int p = 3; p >= 1; p--)
-                {
-                    for (int i = 0; i < 5; i++)
-                    {
-                        string fmt = "0." + new string('#', p);
-                        string s = (vals[i] / 100m).ToString(fmt, CultureInfo.InvariantCulture);
-                        if (s == "") s = "0";
-                        parts[i] = s;
-                    }
-                    outp = string.Join(":", parts);
-                    if (outp.Length <= maxLen) break;
-                }
-            }
-            if (outp.Length > maxLen) outp = outp.Substring(0, maxLen);
-            return outp;
-        }
-
-        private static bool LooksLikeLuaString(IntPtr h, long dataAddr, int len)
-        {
-            byte[] hdr = new byte[0x18];
-            IntPtr got;
-            if (!Native.ReadProcessMemory(h, new IntPtr(dataAddr - 0x18), hdr, new IntPtr(hdr.Length), out got))
-                return false;
-            if (got.ToInt64() != hdr.Length) return false;
-            if (hdr[9] != 4) return false;
-            uint l = BitConverter.ToUInt32(hdr, 0x14);
-            return l == (uint)len;
-        }
-
-        private static bool WriteString(IntPtr h, long dataAddr, byte[] bytes)
-        {
-            IntPtr written;
-            if (!Native.WriteProcessMemory(h, new IntPtr(dataAddr), bytes, new IntPtr(bytes.Length), out written))
-                return false;
-            if (written.ToInt64() != bytes.Length) return false;
-            byte[] zero = new byte[] { 0 };
-            Native.WriteProcessMemory(h, new IntPtr(dataAddr + bytes.Length), zero, new IntPtr(1), out written);
-            byte[] lenBytes = BitConverter.GetBytes((uint)bytes.Length);
-            Native.WriteProcessMemory(h, new IntPtr(dataAddr - 4), lenBytes, new IntPtr(4), out written);
-            return true;
-        }
-
-        private static bool WriteNumbers(IntPtr h, long addr, string newStr)
-        {
-            string[] parts = newStr.Split(':');
-            if (parts.Length != 5) return false;
-            byte[] all = new byte[40];
-            for (int i = 0; i < 5; i++)
-            {
-                double v;
-                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out v))
-                    return false;
-                byte[] b = BitConverter.GetBytes(v);
-                Buffer.BlockCopy(b, 0, all, i * 8, 8);
-            }
-            IntPtr written;
-            return Native.WriteProcessMemory(h, new IntPtr(addr), all, new IntPtr(40), out written) && written.ToInt64() == 40;
-        }
-
-        private static byte[] PackDoubles(params double[] vals)
-        {
-            byte[] b = new byte[vals.Length * 8];
-            for (int i = 0; i < vals.Length; i++)
-                Buffer.BlockCopy(BitConverter.GetBytes(vals[i]), 0, b, i * 8, 8);
-            return b;
+            base.Dispose(disposing);
         }
     }
 }

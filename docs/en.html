@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Slotbound Drop Rate — One-click install</title>
-<meta name="description" content="Slotbound rarity odds editor. Adjust Prismatic / Legendary drop rates at runtime — no file edits, no save edits, single-player only.">
+<meta name="description" content="Slotbound Drop Rate v1.1.0. Supports only Slotbound v1.0.2, Steam build 26791687 for Windows x64.">
 <meta property="og:title" content="Slotbound Drop Rate">
-<meta property="og:description" content="Tune Prismatic / Legendary odds. One-click install for Windows.">
-<meta property="og:image" content="https://zyw313313-collab.github.io/slotbound-drop-rate/app_en.png">
+<meta property="og:description" content="Read, apply and restore the odds for five rarities. One-click install for Windows.">
 <link rel="icon" href="icon.png">
 <style>
   :root{
@@ -83,13 +82,12 @@
 
   <div class="hero">
     <div>
-      <h1>Tune <span>Prismatic</span> and <span>Legendary</span> odds.<br>One switch.</h1>
-      <p class="tag">A drop-rate editor for Slotbound. Rewrites this run's rarity weights in memory — <b>no file edits, no save edits, no multiplayer</b>. Restart the game and everything is back to vanilla.</p>
+      <h1>Adjust <span>Slotbound</span> rarity odds</h1>
+      <p class="tag">Set the odds for five rarities while the game is running. Single-player only. The tool does not directly edit game files or saves.</p>
       <div class="badges">
-        <span class="badge">Windows 10 / 11</span>
-        <span class="badge">Portable · single EXE</span>
-        <span class="badge">Requires admin</span>
-        <span class="badge">Single-player only</span>
+        <span class="badge">v1.1.0</span>
+        <span class="badge">Windows 10 / 11 x64</span>
+        <span class="badge">EN / 中文</span>
       </div>
       <div class="btns">
         <a class="btn btn-primary" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe">Download for Windows</a>
@@ -97,51 +95,52 @@
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate">Source code</a>
       </div>
     </div>
-    <div class="shot"><img src="app_en.png" alt="Slotbound Drop Rate UI"></div>
+    <aside class="card">
+      <h3>Supported game build</h3>
+      <p>Slotbound v1.0.2, Steam build 26791687 for Windows x64 only.</p>
+    </aside>
   </div>
 
   <section id="features">
     <h2>What it does</h2>
     <div class="cards">
       <div class="card">
-        <h3>Five rarities, fully adjustable</h3>
-        <p>Normal / Advanced / Rare / Legendary / Prismatic. Enter percentages and hit “Apply once”. Defaults match your save: 80 / 15 / 4.5 / 0.4 / 0.1.</p>
+        <h3>Set odds for five rarities</h3>
+        <p>Normal / Advanced / Rare / Legendary / Prismatic. The five percentages must add up to 100%.</p>
       </div>
       <div class="card">
-        <h3>Auto re-apply</h3>
-        <p>Tick “Auto” and it re-applies every second, so a freshly started run gets patched automatically without clicking again.</p>
+        <h3>Read, apply and restore</h3>
+        <p>See the current odds, apply and verify new values, or restore the odds from before the tool's edits.</p>
       </div>
       <div class="card">
         <h3>Memory only</h3>
-        <p>The game ships its data in an encrypted <code>Slotbound.dat</code>, so file editing is impossible. This tool only writes to the running process — close the game and it's gone.</p>
+        <p>Restarting the game clears the odds edits. Normal game saves may preserve outcomes you already obtained.</p>
       </div>
     </div>
   </section>
 
   <section id="install">
-    <h2>Install &amp; use</h2>
+    <h2>Install</h2>
+    <p class="tag">Download and run <code>SlotboundDropRate.exe</code> or use the one-click installer to create a desktop shortcut. Requires .NET Framework 4.x (included with Windows 10/11).</p>
+  </section>
+
+  <section id="usage">
+    <h2>Usage</h2>
     <ol class="steps">
-      <li><b>Start the game</b>, enter a run and spin once (this creates the odds data).</li>
-      <li><b>Run the tool.</b> Windows will ask for UAC — click “Yes” (Steam usually runs the game elevated, so the tool must match).</li>
-      <li>It connects to <code>Slotbound.exe</code> automatically; the bottom bar shows “Connected to Slotbound (PID …)”.</li>
-      <li>Set the five percentages and click <b>Apply once</b>; the status line reports how many matches were written.</li>
-      <li>For future runs, tick <b>Auto</b>. To revert, restore the defaults or just restart the game.</li>
+      <li><b>Start the game</b>, enter a run and wait for it to finish loading, then open the tool.</li>
+      <li>Select <b>Read current odds</b> to see the game's five live values.</li>
+      <li>Enter five percentages that add up to <b>100%</b>, then select <b>Apply once</b>.</li>
+      <li>Select <b>Restore original</b> to revert the odds.</li>
     </ol>
-    <p class="note">Back up <code>%APPDATA%\slotbound_full</code> first. The tool never writes saves, but backups are cheap.</p>
+    <p class="note">Back up <code>%APPDATA%\slotbound_full</code> first.</p>
   </section>
 
   <section id="faq">
     <h2>FAQ</h2>
-    <details><summary>“Slotbound.exe not found” / “Cannot open process”</summary>
-      <p>Run the tool as administrator (right-click → Run as administrator) and make sure you are already inside a run. If Steam was started as admin, the game process is elevated and a normal-privilege tool cannot read it.</p></details>
-    <details><summary>It says “0 matched”</summary>
-      <p>The run has not generated the odds string yet: spin once and apply again, or just tick “Auto”. If it stays at 0, open a GitHub issue with a screenshot.</p></details>
-    <details><summary>Applied, but spins look the same</summary>
-      <p>Some builds cache odds as numbers at run start. Try “Also patch number tables (experimental)”; if that still does nothing, report your game version in the issues.</p></details>
-    <details><summary>Can I get banned?</summary>
-      <p>This is a single-player game with no PvP, leaderboards or trading, and the tool only reads/writes its own process memory. It does not touch Steam or any DRM. Use at your own risk.</p></details>
-    <details><summary>Mac / Linux / mobile?</summary>
-      <p>No. Windows 10/11 only (.NET Framework 4.x ships with the OS).</p></details>
+    <details><summary>Can't read the current odds?</summary>
+      <p>Make sure the game has finished loading and you're running the supported Steam build, then select “Read current odds” again.</p></details>
+    <details><summary>Does 100% guarantee that rarity on every spin?</summary>
+      <p>The ordinary rarity roll requires matching symbols. Scripted overrides may produce different results. In a controlled in-game test, 100% Prismatic yielded one prismatic spear unit, and 100% Legendary yielded two legendary skeleton mages.</p></details>
   </section>
 
   <section id="build">

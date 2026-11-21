@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Slotbound 爆率调节 — 一键安装</title>
-<meta name="description" content="Slotbound（转运军团）棱彩/传说爆率调节工具。运行时修改本局稀有度权重，不改游戏文件、不改存档、不碰联机。">
+<meta name="description" content="Slotbound（转运军团）v1.1.0 爆率调节工具。仅支持 Windows x64 Steam 版游戏 v1.0.2（构建 26791687）。">
 <meta property="og:title" content="Slotbound 爆率调节">
-<meta property="og:description" content="手动调节棱彩 / 传说爆率，支持一键安装。">
-<meta property="og:image" content="https://zyw313313-collab.github.io/slotbound-drop-rate/app.png">
+<meta property="og:description" content="读取、应用和恢复五档稀有度爆率，支持一键安装。">
 <link rel="icon" href="icon.png">
 <style>
   :root{
@@ -83,13 +82,12 @@
 
   <div class="hero">
     <div>
-      <h1>想调<span>棱彩</span>和<span>传说</span>爆率？<br>一个开关的事。</h1>
-      <p class="tag">Slotbound（转运军团）单机爆率调节工具。运行时改写本局稀有度权重，<b>不改游戏文件、不改存档、不碰联机</b>，重启游戏即恢复原版。界面中/英双语，自动跟随系统语言，也可右上角切换。</p>
+      <h1>调节 <span>Slotbound</span> 爆率</h1>
+      <p class="tag">在运行中的游戏里调节五档稀有度概率。仅供单机使用，工具本身不修改游戏文件或存档。</p>
       <div class="badges">
-        <span class="badge">Windows 10 / 11</span>
-        <span class="badge">免安装 · 单文件</span>
+        <span class="badge">v1.1.0</span>
+        <span class="badge">Windows 10 / 11 x64</span>
         <span class="badge">中 / EN 双语</span>
-        <span class="badge">仅单机</span>
       </div>
       <div class="btns">
         <a class="btn btn-primary" id="dl" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe">下载 Windows 版</a>
@@ -97,51 +95,52 @@
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate">查看源码</a>
       </div>
     </div>
-    <div class="shot"><img src="app.png" alt="Slotbound 爆率调节界面"></div>
+    <aside class="card">
+      <h3>支持的游戏版本</h3>
+      <p>仅支持 Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）。</p>
+    </aside>
   </div>
 
   <section id="features">
     <h2>它能做什么</h2>
     <div class="cards">
       <div class="card">
-        <h3>五个稀有度随便调</h3>
-        <p>普通 / 高级 / 稀有 / 传说 / 棱彩，填百分比，点“应用一次”。默认值就是你存档里的真实爆率 80 / 15 / 4.5 / 0.4 / 0.1。</p>
+        <h3>调节五档爆率</h3>
+        <p>普通 / 高级 / 稀有 / 传说 / 棱彩。五项百分比之和必须为 100%。</p>
       </div>
       <div class="card">
-        <h3>自动补丁</h3>
-        <p>勾上“自动”，每秒钟补一次。新开一局、游戏重新生成爆率时也会自动改写，不用反复点。</p>
+        <h3>读取、应用、恢复</h3>
+        <p>查看游戏当前的数值，应用并验证新数值，或还原修改前的爆率。</p>
       </div>
       <div class="card">
         <h3>只改内存</h3>
-        <p>游戏的数据包 <code>Slotbound.dat</code> 是加密的，改文件不可行。本工具只写运行中进程的内存，关掉游戏就恢复原样。</p>
+        <p>重启游戏会清除爆率修改。游戏正常存档可能保留已经获得的结果。</p>
       </div>
     </div>
   </section>
 
   <section id="install">
-    <h2>安装 / 使用</h2>
+    <h2>安装</h2>
+    <p class="tag">下载并运行 <code>SlotboundDropRate.exe</code>，也可使用一键安装脚本创建桌面快捷方式。需要 .NET Framework 4.x（Windows 10/11 自带）。</p>
+  </section>
+
+  <section id="usage">
+    <h2>用法</h2>
     <ol class="steps">
-      <li><b>启动游戏</b>，进入一局，先拉一次杆（让这一局的爆率数据生成）。</li>
-      <li><b>运行本工具</b>。首次运行会弹 UAC，点“是”（游戏由 Steam 启动，通常也是管理员权限，必须同级才能读写）。</li>
-      <li>工具会自动连接 <code>Slotbound.exe</code>，底部显示“已连接 Slotbound (PID …)”。</li>
-      <li>填五个百分比，点 <b>应用一次</b>；底部会显示匹配/改写了几处。</li>
-      <li>想对新开一局也生效，勾上 <b>自动</b>。想还原就把数字改回默认再点应用，或直接重启游戏。</li>
+      <li><b>启动游戏</b>，进入一局并等待加载完成，再运行本工具。</li>
+      <li>点击 <b>读取当前爆率</b>，查看游戏中的五档实际数值。</li>
+      <li>设置五项百分比，使总和为 <b>100%</b>，再点击 <b>应用一次</b>。</li>
+      <li>需要还原时，点击 <b>恢复原始爆率</b>。</li>
     </ol>
-    <p class="note">建议先备份存档目录 <code>%APPDATA%\slotbound_full</code>。本工具不写存档，但改爆率后游戏自己的存档行为不变，备份总是更稳。</p>
+    <p class="note">建议先备份存档目录 <code>%APPDATA%\slotbound_full</code>。</p>
   </section>
 
   <section id="faq">
     <h2>常见问题</h2>
-    <details><summary>显示“未找到 Slotbound.exe” / “无法打开进程”</summary>
-      <p>先用管理员身份运行本工具（右键 → 以管理员身份运行），并确认游戏已经进到一局里。Steam 以管理员启动时，游戏进程也是高权限，普通权限的工具读不到。</p></details>
-    <details><summary>点了应用，但底部是“匹配 0 处”</summary>
-      <p>说明这一局还没有生成可改的爆率串：先拉一次杆再点；或者直接勾“自动”。仍然为 0 的话，把界面截图发到 GitHub Issues。</p></details>
-    <details><summary>改了之后拉杆没变化？</summary>
-      <p>个别版本会把爆率在开局时算成数字缓存。勾上“同时改数值表（实验）”再试；还不行请在 Issues 里反馈游戏版本号。</p></details>
-    <details><summary>会被封号吗？</summary>
-      <p>这是纯单机游戏，没有联机对战、排行榜和交易，工具也只读写自己的进程内存，不碰 Steam 和正版验证。风险由使用者自行承担。</p></details>
-    <details><summary>支持 Mac / Linux / 手机版吗？</summary>
-      <p>不支持。当前版本只做 Windows 版（.NET Framework 4.x，Win10/11 自带）。</p></details>
+    <details><summary>无法读取当前爆率？</summary>
+      <p>确认游戏已加载完毕，并且使用受支持的 Steam 构建，然后再次点击“读取当前爆率”。</p></details>
+    <details><summary>设为 100% 后，每次转动都会出现该稀有度吗？</summary>
+      <p>普通稀有度抽取需要转出匹配的符号。剧情或其他脚本指定的结果可能不遵循这些概率。受控实机测试中，棱彩设为 100% 时出现了一个棱彩长矛单位，传说设为 100% 时出现了两个传说骷髅法师。</p></details>
   </section>
 
   <section id="build">

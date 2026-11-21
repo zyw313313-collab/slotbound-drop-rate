@@ -11,11 +11,11 @@ $dist = Join-Path $root 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
 
 $out = Join-Path $dist 'SlotboundDropRate.exe'
-& $csc /nologo /target:winexe /codepage:65001 /optimize+ `
+& $csc /nologo /target:winexe /platform:x64 /codepage:65001 /optimize+ `
     /win32icon:"$root\assets\icon.ico" `
     /win32manifest:"$root\src\app.manifest" `
     /out:"$out" `
     /r:System.dll /r:System.Core.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll `
-    "$root\src\SlotboundDropRate.cs"
+    "$root\src\SlotboundDropRate.cs" "$root\src\RaritySession.cs"
 if ($LASTEXITCODE -ne 0) { throw "编译失败，退出码 $LASTEXITCODE" }
 Write-Host "OK -> $out"
