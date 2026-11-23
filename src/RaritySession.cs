@@ -342,6 +342,8 @@ namespace SlotboundDropRate
             "50B013DD401DB5169BBBC01ABB0FF429610F9EDBF4D0338CF9B4589948A7BC7B",
             "94FB3E3D4B1F6ACCE0110E46AADF1ECAB1FA17C4ED1AB34CAEF3C5C2121C208E"
         };
+        // Steam builds 26791687 (v1.0.2) and 26848798 (v1.0.3) share the executable and Lua runtime.
+        private const string UpdatedDataHash = "89C9099DE49359DBFD1752B5F65DBC3DC7D84E307E712D88ED469BE88165D199";
         private readonly int pid;
         private readonly long created;
         private IntPtr reader;
@@ -376,7 +378,7 @@ namespace SlotboundDropRate
                         using (var stream = File.OpenRead(file))
                         {
                             string hash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                            if (hash != Hashes[index]) throw Unsupported();
+                            if (hash != Hashes[index] && !(index == 1 && hash == UpdatedDataHash)) throw Unsupported();
                         }
                     }
                 }
@@ -443,7 +445,7 @@ namespace SlotboundDropRate
         }
 
         private static RarityException AccessError() { return new RarityException("无法访问 Slotbound 进程。请确认工具和游戏使用同一 Windows 用户及权限。", "Cannot access the Slotbound process. Run the tool and game as the same Windows user and privilege level."); }
-        private static RarityException Unsupported() { return new RarityException("不支持此版本；只支持已核验的 Steam 构建 26791687，未写入任何数据。", "Unsupported game build. Only the verified Steam build 26791687 is supported. Nothing was written."); }
+        private static RarityException Unsupported() { return new RarityException("不支持此版本。已验证的 Steam 构建为 26791687 和 26848798，本次未写入数据。", "Unsupported game build. Supported Steam builds: 26791687 and 26848798. Nothing was written."); }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct MemoryInfo

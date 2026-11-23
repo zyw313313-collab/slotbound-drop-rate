@@ -303,8 +303,8 @@ namespace SlotboundDropRate
             _applyBtn.Text = L.T("应用一次", "Apply once");
             _restoreBtn.Text = L.T("恢复原始爆率", "Restore original");
             _repoLink.Text = L.T("GitHub 项目主页", "GitHub project");
-            _tip.Text = L.T("仅支持 Steam 26791687。更改仅对当前进程生效。建议先备份存档。",
-                            "Steam 26791687 only. Changes affect this process only. Back up your save first.");
+            _tip.Text = L.T("支持 Steam 版 v1.0.2 / v1.0.3。更改仅对当前进程生效。",
+                            "Steam v1.0.2 / v1.0.3. Changes affect this process only.");
             RefreshView();
         }
 

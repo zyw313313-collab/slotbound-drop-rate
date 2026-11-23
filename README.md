@@ -22,7 +22,7 @@
 - **直接下载**：[SlotboundDropRate.exe](https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe)
 - **一键安装脚本**：[install.bat](https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat)（下载到 `%LOCALAPPDATA%\SlotboundDropRate` 并创建桌面快捷方式）
 
-工具 **v1.1.0** 仅支持 **Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）**。需要 Windows 10/11 和 .NET Framework 4.x（系统自带）。
+工具 **v1.1.1** 支持 **Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）和 v1.0.3（构建 26848798）**。需要 Windows 10/11 和 .NET Framework 4.x（系统自带）。
 
 ### 使用
 
@@ -46,7 +46,7 @@
 - **Direct download**: [SlotboundDropRate.exe](https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe)
 - **One-click installer**: [install.bat](https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat) (downloads to `%LOCALAPPDATA%\SlotboundDropRate` and creates a desktop shortcut)
 
-Tool **v1.1.0** supports only **Slotbound v1.0.2, Steam build 26791687 for Windows x64**. Requires Windows 10/11 with .NET Framework 4.x (included in the OS).
+Tool **v1.1.1** supports **Slotbound v1.0.2 (Steam build 26791687) and v1.0.3 (Steam build 26848798) for Windows x64**. Requires Windows 10/11 with .NET Framework 4.x (included in the OS).
 
 ### Usage
 
