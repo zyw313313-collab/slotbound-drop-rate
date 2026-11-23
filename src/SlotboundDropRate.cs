@@ -160,24 +160,23 @@ namespace SlotboundDropRate
 
         public MainForm()
         {
-            ClientSize = new Size(600, 444);
+            AutoScaleMode = AutoScaleMode.None;
+            SuspendLayout();
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Microsoft YaHei UI", 9F);
             BackColor = Color.FromArgb(28, 26, 38);
             ForeColor = Color.FromArgb(235, 230, 245);
-            AutoScaleDimensions = new SizeF(96F, 96F);
-            AutoScaleMode = AutoScaleMode.Dpi;
-
-            _title = MakeLabel(14, 10, 420, 32, Accent);
+            _title = MakeLabel(18, 14, 430, 34, Accent);
             _title.Font = new Font(Font.FontFamily, 15F, FontStyle.Bold);
-            _sub = MakeLabel(16, 44, 560, 24, Muted);
-            _langLink = MakeLink(520, 14, 66);
+            _sub = MakeLabel(18, 50, 584, 24, Muted);
+            _langLink = MakeLink(510, 18, 92);
+            _langLink.TextAlign = ContentAlignment.MiddleRight;
             _langLink.LinkClicked += delegate { L.Zh = !L.Zh; ApplyLanguage(); };
 
-            _group = MakeGroup(14, 73, 272, 207);
-            _readbackGroup = MakeGroup(298, 73, 288, 207);
+            _group = MakeGroup(18, 80, 286, 208);
+            _readbackGroup = MakeGroup(316, 80, 286, 208);
             _readbackText = new Label();
             _readbackText.SetBounds(14, 27, 260, 164);
             _readbackGroup.Controls.Add(_readbackText);
@@ -190,6 +189,7 @@ namespace SlotboundDropRate
                 _gradeLabels[index] = label;
 
                 var input = new TextBox();
+                input.AutoSize = false;
                 input.SetBounds(104, 27 + index * 33, 106, 24);
                 input.TextAlign = HorizontalAlignment.Right;
                 input.MaxLength = 32;
@@ -205,9 +205,11 @@ namespace SlotboundDropRate
                 _group.Controls.Add(percent);
             }
 
-            _readBtn = MakeButton(14, 154);
+            _readBtn = MakeButton(18, 184);
             _readBtn.Click += async delegate { await RunAsync(Operation.Read, null); };
-            _applyBtn = MakeButton(179, 122);
+            _applyBtn = MakeButton(214, 192);
+            _applyBtn.BackColor = Color.FromArgb(109, 48, 94);
+            _applyBtn.FlatAppearance.BorderColor = Accent;
             _applyBtn.Click += async delegate
             {
                 double[] weights = ReadDraft();
@@ -223,20 +225,31 @@ namespace SlotboundDropRate
                 }
                 await RunAsync(Operation.Apply, weights);
             };
-            _restoreBtn = MakeButton(312, 147);
+            _restoreBtn = MakeButton(418, 184);
             _restoreBtn.Click += async delegate { await RunAsync(Operation.Restore, null); };
 
-            _status = MakeLabel(14, 329, 572, 54, ForeColor);
+            _status = MakeLabel(18, 344, 584, 55, ForeColor);
+            _status.BackColor = Color.FromArgb(37, 33, 50);
             _status.BorderStyle = BorderStyle.FixedSingle;
-            _status.Padding = new Padding(8);
-            _conn = MakeLabel(14, 389, 406, 22, Muted);
-            _repoLink = MakeLink(444, 389, 142);
+            _status.Padding = new Padding(9);
+            _conn = MakeLabel(18, 406, 400, 22, Muted);
+            _repoLink = MakeLink(430, 406, 172);
+            _repoLink.TextAlign = ContentAlignment.MiddleRight;
             _repoLink.LinkClicked += delegate
             {
                 try { Process.Start("https://github.com/zyw313313-collab/slotbound-drop-rate"); }
                 catch (Exception) { }
             };
-            _tip = MakeLabel(14, 416, 572, 22, Muted);
+            _tip = MakeLabel(18, 434, 584, 22, Muted);
+
+            // Apply one scale to the window and every control created above.
+            using (Graphics display = CreateGraphics())
+            {
+                float scale = display.DpiX / 96F;
+                ScaleLayout(Controls, scale);
+                ClientSize = new Size(Pixels(620, scale), Pixels(470, scale));
+            }
+            ResumeLayout(true);
 
             _timer = new Timer();
             _timer.Interval = 1000;
@@ -244,6 +257,26 @@ namespace SlotboundDropRate
             _timer.Start();
             ActiveControl = _readBtn;
             ApplyLanguage();
+        }
+
+        private static int Pixels(int logicalSize, float scale)
+        {
+            return (int)Math.Round(logicalSize * scale);
+        }
+
+        private static void ScaleLayout(Control.ControlCollection controls, float scale)
+        {
+            foreach (Control control in controls)
+            {
+                Rectangle bounds = control.Bounds;
+                if (control is TextBox) ((TextBox)control).AutoSize = false;
+                control.SetBounds(Pixels(bounds.X, scale), Pixels(bounds.Y, scale),
+                    Pixels(bounds.Width, scale), Pixels(bounds.Height, scale));
+                Padding padding = control.Padding;
+                control.Padding = new Padding(Pixels(padding.Left, scale), Pixels(padding.Top, scale),
+                    Pixels(padding.Right, scale), Pixels(padding.Bottom, scale));
+                ScaleLayout(control.Controls, scale);
+            }
         }
 
         private Label MakeLabel(int left, int top, int width, int height, Color color)
@@ -276,7 +309,7 @@ namespace SlotboundDropRate
         private Button MakeButton(int left, int width)
         {
             var button = new Button();
-            button.SetBounds(left, 289, width, 32);
+            button.SetBounds(left, 300, width, 32);
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.FromArgb(58, 52, 76);
             button.ForeColor = Color.White;
