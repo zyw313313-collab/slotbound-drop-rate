@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Slotbound 爆率调节 — 一键安装</title>
-<meta name="description" content="Slotbound（转运军团）v1.1.1 爆率调节工具。仅支持 Windows x64 Steam 版游戏 v1.0.2（构建 26791687）。">
+<meta name="description" content="Slotbound（转运军团）v1.1.2 爆率调节工具，支持 Windows x64 Steam 版游戏 v1.0.2 和 v1.0.3。">
 <meta property="og:title" content="Slotbound 爆率调节">
 <meta property="og:description" content="读取、应用和恢复五档稀有度爆率，支持一键安装。">
 <link rel="icon" href="icon.png">
@@ -40,7 +40,7 @@
   .btn-ghost:hover{border-color:var(--pink-dim);text-decoration:none}
   .shot{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card);
     box-shadow:0 30px 80px rgba(0,0,0,.45)}
-  .shot img{display:block;width:100%}
+  .shot img{display:block;width:100%;height:auto}
   section{padding:34px 0}
   h2{font-size:25px;margin:0 0 18px}
   .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -85,7 +85,7 @@
       <h1>调节 <span>Slotbound</span> 爆率</h1>
       <p class="tag">在运行中的游戏里调节五档稀有度概率。仅供单机使用，工具本身不修改游戏文件或存档。</p>
       <div class="badges">
-        <span class="badge">v1.1.1</span>
+        <span class="badge">v1.1.2</span>
         <span class="badge">Windows 10 / 11 x64</span>
         <span class="badge">中 / EN 双语</span>
       </div>
@@ -95,10 +95,15 @@
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate">查看源码</a>
       </div>
     </div>
-    <aside class="card">
-      <h3>支持的游戏版本</h3>
-      <p>支持 Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）和 v1.0.3（构建 26848798）。</p>
-    </aside>
+    <div>
+      <figure class="shot" style="margin:0 0 16px">
+        <a href="slotbound-v1.1.2-zh.png"><img src="slotbound-v1.1.2-zh.png" width="921" height="721" alt="Slotbound 爆率调节 v1.1.2 中文界面，显示五档概率和操作按钮"></a>
+      </figure>
+      <aside class="card">
+        <h3>支持的游戏版本</h3>
+        <p>支持 Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）和 v1.0.3（构建 26848798）。</p>
+      </aside>
+    </div>
   </div>
 
   <section id="features">

@@ -9,6 +9,14 @@
 
 **中文** ｜ [English](#english)
 
+## 界面预览 / Interface preview
+
+![Slotbound 爆率调节 v1.1.2 中文界面](docs/slotbound-v1.1.2-zh.png)
+
+v1.1.2 统一了高 DPI 下窗口和控件的缩放，并将读取、应用和恢复按钮排在同一行。
+
+v1.1.2 scales the window and controls together at high DPI and aligns the Read, Apply, and Restore buttons in one row. [View the English interface](docs/slotbound-v1.1.2-en.png).
+
 ## 中文
 
 ### 功能
@@ -22,7 +30,7 @@
 - **直接下载**：[SlotboundDropRate.exe](https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe)
 - **一键安装脚本**：[install.bat](https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat)（下载到 `%LOCALAPPDATA%\SlotboundDropRate` 并创建桌面快捷方式）
 
-工具 **v1.1.1** 支持 **Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）和 v1.0.3（构建 26848798）**。需要 Windows 10/11 和 .NET Framework 4.x（系统自带）。
+工具 **v1.1.2** 支持 **Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）和 v1.0.3（构建 26848798）**。需要 Windows 10/11 和 .NET Framework 4.x（系统自带）。
 
 ### 使用
 
@@ -46,7 +54,7 @@
 - **Direct download**: [SlotboundDropRate.exe](https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe)
 - **One-click installer**: [install.bat](https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat) (downloads to `%LOCALAPPDATA%\SlotboundDropRate` and creates a desktop shortcut)
 
-Tool **v1.1.1** supports **Slotbound v1.0.2 (Steam build 26791687) and v1.0.3 (Steam build 26848798) for Windows x64**. Requires Windows 10/11 with .NET Framework 4.x (included in the OS).
+Tool **v1.1.2** supports **Slotbound v1.0.2 (Steam build 26791687) and v1.0.3 (Steam build 26848798) for Windows x64**. Requires Windows 10/11 with .NET Framework 4.x (included in the OS).
 
 ### Usage
 
