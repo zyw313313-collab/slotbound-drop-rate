@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>转运军团（Slotbound）棱彩与传说爆率修改器</title>
-<meta name="description" content="调整转运军团（Slotbound）的棱彩、传说等五档稀有度爆率。支持 Windows x64 的 Steam 版游戏 v1.0.2 和 v1.0.3，提供一键安装。">
+<meta name="description" content="调整转运军团（Slotbound）的棱彩、传说等五档稀有度爆率。支持 Windows x64 的 Steam 版游戏 v1.0.4（构建 26899345），提供一键安装。">
 <meta property="og:title" content="转运军团（Slotbound）棱彩与传说爆率修改器">
-<meta property="og:description" content="调整棱彩与传说爆率。支持 Windows x64 的 Steam 版游戏 v1.0.2 和 v1.0.3，提供一键安装。">
+<meta property="og:description" content="调整棱彩与传说爆率。支持 Windows x64 的 Steam 版游戏 v1.0.4（构建 26899345），提供一键安装。">
 <link rel="canonical" href="https://zyw313313-collab.github.io/slotbound-drop-rate/">
 <link rel="alternate" hreflang="zh-CN" href="https://zyw313313-collab.github.io/slotbound-drop-rate/">
 <link rel="alternate" hreflang="en" href="https://zyw313313-collab.github.io/slotbound-drop-rate/en.html">
@@ -88,23 +88,23 @@
       <h1>调节 <span>Slotbound</span> 爆率</h1>
       <p class="tag">在运行中的游戏里调节五档稀有度概率。仅供单机使用，工具本身不修改游戏文件或存档。</p>
       <div class="badges">
-        <span class="badge">v1.1.2</span>
+        <span class="badge">工具 v1.2.0</span>
         <span class="badge">Windows 10 / 11 x64</span>
         <span class="badge">中 / EN 双语</span>
       </div>
       <div class="btns">
-        <a class="btn btn-primary" id="dl" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe">下载 Windows 版</a>
+        <a class="btn btn-primary" id="dl" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.zip">下载 Windows 版 ZIP</a>
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat">一键安装脚本</a>
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate">查看源码</a>
       </div>
     </div>
     <div>
       <figure class="shot" style="margin:0 0 16px">
-        <a href="slotbound-v1.1.2-zh.png"><img src="slotbound-v1.1.2-zh.png" width="921" height="721" alt="Slotbound 爆率调节 v1.1.2 中文界面，显示五档概率和操作按钮"></a>
+        <a href="slotbound-v1.1.2-zh.png"><img src="slotbound-v1.1.2-zh.png" width="921" height="721" alt="Slotbound 爆率调节旧版 v1.1.2 中文界面，显示五档概率和操作按钮"></a>
       </figure>
       <aside class="card">
         <h3>支持的游戏版本</h3>
-        <p>支持 Windows x64 的 Steam 版 Slotbound v1.0.2（构建 26791687）和 v1.0.3（构建 26848798）。</p>
+        <p>工具 v1.2.0 随附的配置仅支持写入 Windows x64 的 Steam 版 Slotbound v1.0.4（构建 26899345），不再支持旧构建的写入。</p>
       </aside>
     </div>
   </div>
@@ -129,7 +129,8 @@
 
   <section id="install">
     <h2>安装</h2>
-    <p class="tag">下载并运行 <code>SlotboundDropRate.exe</code>，也可使用一键安装脚本创建桌面快捷方式。需要 .NET Framework 4.x（Windows 10/11 自带）。</p>
+    <p>下载 <code>SlotboundDropRate.zip</code>，将 <code>SlotboundDropRate.exe</code> 和 <code>slotbound-compatibility.ini</code> 解压到同一目录，保留两者，再运行 EXE。也可运行一键安装脚本：它会下载最新发布的 ZIP，将两个文件安装到 <code>%LOCALAPPDATA%\SlotboundDropRate</code> 并创建桌面快捷方式。需要 .NET Framework 4.x（Windows 10/11 自带）。</p>
+    <p>如果后续游戏更新只需更换配置，关闭工具后，可从发布页下载独立的 <a href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/slotbound-compatibility.ini"><code>slotbound-compatibility.ini</code></a>，手动替换工具 EXE 同目录的文件，再打开工具。工具不会联网自动获取配置。</p>
   </section>
 
   <section id="usage">
@@ -146,7 +147,9 @@
   <section id="faq">
     <h2>常见问题</h2>
     <details><summary>无法读取当前爆率？</summary>
-      <p>确认游戏已加载完毕，并且使用受支持的 Steam 构建，然后再次点击“读取当前爆率”。</p></details>
+      <p>确认游戏已加载完毕；若游戏刚更新，请重启游戏，再点击“读取当前爆率”。</p></details>
+    <details><summary>为什么只能读取，不能应用或恢复？</summary>
+      <p>游戏 EXE 和 Lua 运行库匹配时，未知 Steam 构建或不匹配的 <code>Slotbound.dat</code> 仍可尝试只读诊断。配置缺失、无效或不匹配时绝不会启用写入。游戏 EXE 或 Lua 运行库发生变化时，连只读诊断也会停止。</p></details>
     <details><summary>设为 100% 后，每次转动都会出现该稀有度吗？</summary>
       <p>普通稀有度抽取需要转出匹配的符号。剧情或其他脚本指定的结果可能不遵循这些概率。受控实机测试中，棱彩设为 100% 时出现了一个棱彩长矛单位，传说设为 100% 时出现了两个传说骷髅法师。</p></details>
   </section>
@@ -154,7 +157,7 @@
   <section id="build">
     <h2>自己编译</h2>
     <p class="tag">仓库里是完整的 C# 源码，只依赖 Windows 自带的 .NET Framework：</p>
-    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → 生成 <code>dist\SlotboundDropRate.exe</code></p>
+    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → 生成 <code>dist\SlotboundDropRate.exe</code>、<code>dist\slotbound-compatibility.ini</code> 和包含两者的 <code>dist\SlotboundDropRate.zip</code></p>
   </section>
 
   <footer>

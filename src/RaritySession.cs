@@ -326,8 +326,16 @@ namespace SlotboundDropRate
         internal bool HasOriginal { get { return odds.HasOriginal; } }
         internal int ProcessId { get { return memory.ProcessId; } }
         internal bool HasExited { get { return memory.HasExited; } }
+        internal bool CanWrite { get { return memory.CanWrite; } }
+        internal string DetectedBuild { get { return memory.DetectedBuild; } }
+        internal string SupportedBuild { get { return memory.SupportedBuild; } }
+        internal string DataHash { get { return memory.DataHash; } }
         internal double[] ReadWeights() { return odds.Read(); }
-        internal double[] Apply(double[] weights) { return odds.Apply(weights); }
+        internal double[] Apply(double[] weights)
+        {
+            memory.RequireWrite();
+            return odds.Apply(weights);
+        }
         internal double[] Restore() { return odds.Restore(); }
         public void Dispose() { memory.Dispose(); }
     }
@@ -336,22 +344,38 @@ namespace SlotboundDropRate
     {
         private const uint ReadAccess = 0x100410;
         private const uint WriteAccess = 0x100428;
-        private static readonly string[] Files = { "Slotbound.exe", "Slotbound.dat", "lua51.dll" };
-        private static readonly string[] Hashes = {
-            "2650C2ED3D4CE224D446EF2B6336D239B4421133232154E5E93E568464604CCA",
-            "50B013DD401DB5169BBBC01ABB0FF429610F9EDBF4D0338CF9B4589948A7BC7B",
-            "94FB3E3D4B1F6ACCE0110E46AADF1ECAB1FA17C4ED1AB34CAEF3C5C2121C208E"
-        };
-        // Steam builds 26791687 (v1.0.2) and 26848798 (v1.0.3) share the executable and Lua runtime.
-        private const string UpdatedDataHash = "89C9099DE49359DBFD1752B5F65DBC3DC7D84E307E712D88ED469BE88165D199";
+        private const string ExecutableHash = "2650C2ED3D4CE224D446EF2B6336D239B4421133232154E5E93E568464604CCA";
+        private const string LuaRuntimeHash = "94FB3E3D4B1F6ACCE0110E46AADF1ECAB1FA17C4ED1AB34CAEF3C5C2121C208E";
         private readonly int pid;
         private readonly long created;
         private IntPtr reader;
         private IntPtr writer;
 
-        private ProcessMemory(int pid, IntPtr handle, long created) { this.pid = pid; reader = handle; this.created = created; }
+        private ProcessMemory(int pid, IntPtr handle, long created, string build, string dataHash,
+                              BuildCompatibility profile, bool dataPredatesProcess)
+        {
+            this.pid = pid;
+            reader = handle;
+            this.created = created;
+            DetectedBuild = build;
+            DataHash = dataHash;
+            SupportedBuild = profile == null ? null : profile.Build;
+            CanWrite = dataPredatesProcess && BuildCompatibility.CanWrite(profile, build, dataHash);
+        }
+
         internal int ProcessId { get { return pid; } }
         internal bool HasExited { get { return reader == IntPtr.Zero || WaitForSingleObject(reader, 0) != 258; } }
+        internal string DetectedBuild { get; private set; }
+        internal string SupportedBuild { get; private set; }
+        internal string DataHash { get; private set; }
+        internal bool CanWrite { get; private set; }
+
+        internal void RequireWrite()
+        {
+            if (!CanWrite) throw new RarityException(
+                "当前游戏构建仅支持读取。请检查兼容配置，并在游戏更新后重启游戏。未写入任何数据。",
+                "This game build is read-only. Check the compatibility profile and restart the game after an update. Nothing was written.");
+        }
 
         internal static ProcessMemory Connect()
         {
@@ -369,23 +393,32 @@ namespace SlotboundDropRate
                 long created, exited, kernel, user;
                 if (!QueryFullProcessImageName(handle, 0, image, ref size) || !GetProcessTimes(handle, out created, out exited, out kernel, out user)) throw AccessError();
                 string path = image.ToString();
-                if (!string.Equals(Path.GetFileName(path), Files[0], StringComparison.OrdinalIgnoreCase)) throw Unsupported();
+                if (!string.Equals(Path.GetFileName(path), "Slotbound.exe", StringComparison.OrdinalIgnoreCase)) throw UnsupportedRuntime();
+                string directory = Path.GetDirectoryName(path);
+                string data = Path.Combine(directory, "Slotbound.dat");
+                string build = BuildCompatibility.FindSteamBuild(path);
+                string dataHash;
+                bool dataPredatesProcess;
                 using (var sha = SHA256.Create())
                 {
-                    for (int index = 0; index < Files.Length; index++)
-                    {
-                        string file = index == 0 ? path : Path.Combine(Path.GetDirectoryName(path), Files[index]);
-                        using (var stream = File.OpenRead(file))
-                        {
-                            string hash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                            if (hash != Hashes[index] && !(index == 1 && hash == UpdatedDataHash)) throw Unsupported();
-                        }
-                    }
+                    if (!BuildCompatibility.CanInspect(HashFile(sha, path), HashFile(sha, Path.Combine(directory, "lua51.dll")),
+                        ExecutableHash, LuaRuntimeHash)) throw UnsupportedRuntime();
+                    var lastWrite = File.GetLastWriteTimeUtc(data);
+                    dataHash = HashFile(sha, data);
+                    dataPredatesProcess = lastWrite.ToFileTimeUtc() <= created && lastWrite == File.GetLastWriteTimeUtc(data)
+                        && build == BuildCompatibility.FindSteamBuild(path);
                 }
-                return new ProcessMemory(id, handle, created);
+                var profile = BuildCompatibility.Load(AppDomain.CurrentDomain.BaseDirectory);
+                return new ProcessMemory(id, handle, created, build, dataHash, profile, dataPredatesProcess);
             }
-            catch (IOException) { CloseHandle(handle); throw Unsupported(); }
+            catch (IOException) { CloseHandle(handle); throw UnsupportedRuntime(); }
             catch { CloseHandle(handle); throw; }
+        }
+
+        private static string HashFile(SHA256 hash, string path)
+        {
+            using (var stream = File.OpenRead(path))
+                return BitConverter.ToString(hash.ComputeHash(stream)).Replace("-", "");
         }
 
         public byte[] Read(long address, int length)
@@ -421,7 +454,7 @@ namespace SlotboundDropRate
 
         public bool WriteNumber(long address, double value)
         {
-            if (HasExited || (address & 7) != 0) return false;
+            if (!CanWrite || HasExited || (address & 7) != 0) return false;
             if (writer == IntPtr.Zero)
             {
                 IntPtr handle = OpenProcess(WriteAccess, false, pid);
@@ -445,7 +478,7 @@ namespace SlotboundDropRate
         }
 
         private static RarityException AccessError() { return new RarityException("无法访问 Slotbound 进程。请确认工具和游戏使用同一 Windows 用户及权限。", "Cannot access the Slotbound process. Run the tool and game as the same Windows user and privilege level."); }
-        private static RarityException Unsupported() { return new RarityException("不支持此版本。已验证的 Steam 构建为 26791687 和 26848798，本次未写入数据。", "Unsupported game build. Supported Steam builds: 26791687 and 26848798. Nothing was written."); }
+        private static RarityException UnsupportedRuntime() { return new RarityException("无法识别游戏文件或运行时，已停止诊断。未写入任何数据。", "Game files or runtime not recognized. Diagnostics stopped. Nothing was written."); }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct MemoryInfo

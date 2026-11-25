@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Slotbound Drop Rate Editor for Legendary and Prismatic Units</title>
-<meta name="description" content="Adjust Legendary and Prismatic drop rates in Slotbound. One-click installation for Windows x64. Supports Steam game versions v1.0.2 and v1.0.3.">
+<meta name="description" content="Adjust Legendary and Prismatic drop rates in Slotbound. One-click installation for Windows x64. Supports Steam game v1.0.4 (build 26899345).">
 <meta property="og:title" content="Slotbound Drop Rate Editor for Legendary and Prismatic Units">
-<meta property="og:description" content="Adjust Legendary and Prismatic drop rates in Slotbound with one-click installation for Windows x64. Supports Steam game versions v1.0.2 and v1.0.3.">
+<meta property="og:description" content="Adjust Legendary and Prismatic drop rates in Slotbound with one-click installation for Windows x64. Supports Steam game v1.0.4 (build 26899345).">
 <link rel="canonical" href="https://zyw313313-collab.github.io/slotbound-drop-rate/en.html">
 <link rel="alternate" hreflang="zh-CN" href="https://zyw313313-collab.github.io/slotbound-drop-rate/">
 <link rel="alternate" hreflang="en" href="https://zyw313313-collab.github.io/slotbound-drop-rate/en.html">
@@ -88,23 +88,23 @@
       <h1>Adjust <span>Slotbound</span> rarity odds</h1>
       <p class="tag">Set the odds for five rarities while the game is running. Single-player only. The tool does not directly edit game files or saves.</p>
       <div class="badges">
-        <span class="badge">v1.1.2</span>
+        <span class="badge">Tool v1.2.0</span>
         <span class="badge">Windows 10 / 11 x64</span>
         <span class="badge">EN / 中文</span>
       </div>
       <div class="btns">
-        <a class="btn btn-primary" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.exe">Download for Windows</a>
+        <a class="btn btn-primary" href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/SlotboundDropRate.zip">Download Windows ZIP</a>
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate/raw/main/install.bat">One-click installer</a>
         <a class="btn btn-ghost" href="https://github.com/zyw313313-collab/slotbound-drop-rate">Source code</a>
       </div>
     </div>
     <div>
       <figure class="shot" style="margin:0 0 16px">
-        <a href="slotbound-v1.1.2-en.png"><img src="slotbound-v1.1.2-en.png" width="936" height="745" alt="Slotbound Drop Rate v1.1.2, English interface with odds and controls"></a>
+        <a href="slotbound-v1.1.2-en.png"><img src="slotbound-v1.1.2-en.png" width="936" height="745" alt="Older Slotbound Drop Rate v1.1.2 screenshot, English interface with odds and controls"></a>
       </figure>
       <aside class="card">
         <h3>Supported game builds</h3>
-        <p>Slotbound v1.0.2 (Steam build 26791687) and v1.0.3 (Steam build 26848798) for Windows x64.</p>
+        <p>The profile shipped with tool v1.2.0 enables writing only for Slotbound v1.0.4 (Steam build 26899345) on Windows x64. Older builds are no longer supported for writes.</p>
       </aside>
     </div>
   </div>
@@ -129,7 +129,8 @@
 
   <section id="install">
     <h2>Install</h2>
-    <p class="tag">Download and run <code>SlotboundDropRate.exe</code> or use the one-click installer to create a desktop shortcut. Requires .NET Framework 4.x (included with Windows 10/11).</p>
+    <p>Download <code>SlotboundDropRate.zip</code> and extract <code>SlotboundDropRate.exe</code> and <code>slotbound-compatibility.ini</code> into the same folder. Keep both files together and run the EXE. Or use the one-click installer to download the latest release ZIP, install both files in <code>%LOCALAPPDATA%\SlotboundDropRate</code>, and create a desktop shortcut. Requires .NET Framework 4.x (included with Windows 10/11).</p>
+    <p>If a later game update only needs a new profile, close the tool, download the standalone <a href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/slotbound-compatibility.ini"><code>slotbound-compatibility.ini</code></a>, manually replace the file beside the tool EXE, and reopen the tool. The tool never fetches profiles automatically.</p>
   </section>
 
   <section id="usage">
@@ -146,7 +147,9 @@
   <section id="faq">
     <h2>FAQ</h2>
     <details><summary>Can't read the current odds?</summary>
-      <p>Make sure the game has finished loading and you're running the supported Steam build, then select “Read current odds” again.</p></details>
+      <p>Make sure the game has finished loading. If Steam just updated the game, restart it before selecting “Read current odds” again.</p></details>
+    <details><summary>Why can I read the odds but not apply or restore them?</summary>
+      <p>If the game EXE and Lua runtime still match, an unknown Steam build or mismatched <code>Slotbound.dat</code> can be checked in read-only diagnostic mode. A missing, invalid, or mismatched profile never enables writing. If the game EXE or Lua runtime changes, even read-only diagnostics stop.</p></details>
     <details><summary>Does 100% guarantee that rarity on every spin?</summary>
       <p>The ordinary rarity roll requires matching symbols. Scripted overrides may produce different results. In a controlled in-game test, 100% Prismatic yielded one prismatic spear unit, and 100% Legendary yielded two legendary skeleton mages.</p></details>
   </section>
@@ -154,7 +157,7 @@
   <section id="build">
     <h2>Build it yourself</h2>
     <p class="tag">The repo contains the full C# source; it only needs the .NET Framework that ships with Windows:</p>
-    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → <code>dist\SlotboundDropRate.exe</code></p>
+    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → <code>dist\SlotboundDropRate.exe</code>, <code>dist\slotbound-compatibility.ini</code>, and <code>dist\SlotboundDropRate.zip</code> (contains both files)</p>
   </section>
 
   <footer>

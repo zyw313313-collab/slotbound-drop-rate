@@ -48,7 +48,9 @@ namespace SlotboundDropRate
                 {
                     double[] weights = session.ReadWeights();
                     output = L.T("仅扫描：已读取当前爆率（未写入）", "Scan only: current drop rates read (no writes)")
-                        + " | PID " + session.ProcessId + Environment.NewLine + Odds.Format(weights);
+                        + " | PID " + session.ProcessId + Environment.NewLine + L.BuildStatus(session)
+                        + Environment.NewLine + "Slotbound.dat SHA-256: " + session.DataHash
+                        + Environment.NewLine + Odds.Format(weights);
                 }
             }
             catch (Exception error)
@@ -78,6 +80,15 @@ namespace SlotboundDropRate
         public static bool Zh = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
 
         public static string T(string zh, string en) { return Zh ? zh : en; }
+
+        public static string BuildStatus(RaritySession session)
+        {
+            string detected = session.DetectedBuild ?? T("未知", "unknown");
+            string supported = session.SupportedBuild ?? T("无有效配置", "no valid profile");
+            return T("Steam 构建：", "Steam build: ") + detected
+                + T("；支持：", "; supported: ") + supported
+                + (session.CanWrite ? "" : T("（仅诊断，禁止写入）", " (diagnostics only; writes disabled)"));
+        }
 
         public static string Error(Exception error)
         {
@@ -336,8 +347,6 @@ namespace SlotboundDropRate
             _applyBtn.Text = L.T("应用一次", "Apply once");
             _restoreBtn.Text = L.T("恢复原始爆率", "Restore original");
             _repoLink.Text = L.T("GitHub 项目主页", "GitHub project");
-            _tip.Text = L.T("支持 Steam 版 v1.0.2 / v1.0.3。更改仅对当前进程生效。",
-                            "Steam v1.0.2 / v1.0.3. Changes affect this process only.");
             RefreshView();
         }
 
@@ -391,7 +400,7 @@ namespace SlotboundDropRate
                 });
                 if (_disposed) return;
                 _verifiedWeights = observed;
-                _canApply = true;
+                _canApply = _session.CanWrite;
                 for (int index = 0; index < Odds.Count; index++)
                 {
                     _inputs[index].Text = ((decimal)(_verifiedWeights[index] * 100d))
@@ -401,7 +410,10 @@ namespace SlotboundDropRate
                 {
                     switch (operation)
                     {
-                        case Operation.Read: return L.T("已读取当前爆率，未写入。", "Current odds read. Nothing was written.");
+                        case Operation.Read: return _session.CanWrite
+                            ? L.T("已读取当前爆率，未写入。", "Current odds read. Nothing was written.")
+                            : L.T("已读取当前爆率。检测到未验证的构建或缺少匹配配置，禁止写入。",
+                                  "Odds read. Unverified build or missing matching profile; writes disabled.");
                         case Operation.Apply: return L.T("已应用并验证实际爆率。", "Applied and verified the live odds.");
                         default: return L.T("已恢复并验证原始爆率。", "Restored and verified the original odds.");
                     }
@@ -482,6 +494,11 @@ namespace SlotboundDropRate
                 : L.T("已连接 Slotbound", "Connected to Slotbound") + " (PID " + _session.ProcessId + ")";
             _readbackText.Text = _verifiedWeights == null
                 ? L.T("没有已验证的爆率。", "No verified odds yet.") : Odds.Format(_verifiedWeights);
+            _tip.Text = _session == null
+                ? L.T("启动游戏后读取爆率，即可检查 Steam 构建。", "Read current odds to check the Steam build.")
+                : L.BuildStatus(_session);
+            _tip.AutoEllipsis = true;
+            _tip.AccessibleDescription = _tip.Text;
             UpdateStatus();
         }
 
