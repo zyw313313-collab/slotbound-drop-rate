@@ -15,6 +15,7 @@ namespace SlotboundDropRate
         private static int Main(string[] args)
         {
             bool scan = false;
+            bool prepareProfile = false;
             foreach (string arg in args)
             {
                 switch (arg)
@@ -24,18 +25,93 @@ namespace SlotboundDropRate
                     case "--lang=zh":
                     case "--chinese": L.Zh = true; break;
                     case "--scan": scan = true; break;
+                    case "--prepare-profile": prepareProfile = true; break;
                     default:
-                        Console.Error.WriteLine("Usage: SlotboundDropRate [--scan] [--lang=en|--lang=zh]");
+                        Console.Error.WriteLine("Usage: SlotboundDropRate [--scan | --prepare-profile] [--lang=en|--lang=zh]");
                         return 2;
                 }
             }
 
+            if (scan && prepareProfile) return 2;
             if (scan) return ScanCli();
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if (prepareProfile) return PrepareProfile();
             using (var form = new MainForm()) Application.Run(form);
             return 0;
+        }
+
+        private static int PrepareProfile()
+        {
+            string title = L.T("小版本兼容配置", "Minor update compatibility");
+            try
+            {
+                using (RaritySession session = RaritySession.Connect())
+                {
+                    session.ReadWeights();
+                    if (session.DetectedBuild == null)
+                        throw new RarityException("未识别到 Steam 构建号，未生成配置。", "Steam build not detected. No profile was generated.");
+                    if (session.CanWrite)
+                    {
+                        MessageBox.Show(L.T("当前配置已匹配游戏，无需更新。", "The current profile already matches the game."), title);
+                        return 0;
+                    }
+                    string version = PromptGameVersion(title, session.DetectedBuild);
+                    if (version == null) return 0;
+                    if (session.HasExited)
+                        throw new RarityException("游戏已退出，请重启游戏后重试。", "The game exited. Restart it and try again.");
+                    var candidate = ProfileSetup.Prepare(AppDomain.CurrentDomain.BaseDirectory, version, session.DetectedBuild, session.DataHash);
+                    string warning = L.T(
+                        "候选配置已生成。只读检查通过，不代表实际召唤已验证。\n\n是否备份旧配置（如有）并替换为候选？请仅在本地单机测试局试用。",
+                        "Candidate generated. A successful read-only scan does not verify actual summons.\n\nBack up the old profile (if present) and install the candidate? Try it only in a local single-player test run.");
+                    if (MessageBox.Show(warning, title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+                        MessageBoxDefaultButton.Button2) != DialogResult.Yes) return 0;
+                    if (session.HasExited)
+                        throw new RarityException("游戏已退出，现用配置未替换。请重试。", "The game exited. The active profile was not replaced. Try again.");
+                    string backup = candidate.Activate();
+                    string complete = L.T("已安装本地试用配置。重新打开修改器，测试实际召唤及恢复原始爆率。",
+                        "Local test profile installed. Reopen the tool and test actual summons and restoring the original odds.");
+                    if (backup != null) complete += Environment.NewLine + L.T("备份：", "Backup: ") + Path.GetFileName(backup);
+                    MessageBox.Show(complete, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return 0;
+                }
+            }
+            catch (Exception error)
+            {
+                string detail = error is IOException || error is UnauthorizedAccessException ? error.Message : L.Error(error);
+                MessageBox.Show(L.T("兼容检查或配置保存失败：", "Compatibility check or profile save failed: ") + detail,
+                    title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return 1;
+            }
+        }
+
+        private static string PromptGameVersion(string title, string build)
+        {
+            using (var dialog = new Form())
+            {
+                dialog.Text = title;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.StartPosition = FormStartPosition.CenterScreen;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.ClientSize = new Size(440, 155);
+                dialog.AutoScaleMode = AutoScaleMode.Font;
+                var explanation = new Label { AutoSize = true, MaximumSize = new Size(410, 0),
+                    Location = new Point(12, 12), Text = L.T("已检测到 Steam 构建 ", "Detected Steam build ") + build + Environment.NewLine
+                        + L.T("请输入游戏主菜单的实际版本（如 1.0.5，不带 v）。", "Enter the version shown on the game menu (e.g. 1.0.5, without v).") };
+                var input = new TextBox { MaxLength = 17 };
+                input.SetBounds(12, 73, 240, 26);
+                var accept = new Button { Text = L.T("生成候选", "Create candidate"), DialogResult = DialogResult.OK };
+                accept.SetBounds(211, 112, 120, 29);
+                var cancel = new Button { Text = L.T("取消", "Cancel"), DialogResult = DialogResult.Cancel };
+                cancel.SetBounds(340, 112, 87, 29);
+                dialog.Controls.AddRange(new Control[] { explanation, input, accept, cancel });
+                dialog.AcceptButton = accept;
+                dialog.CancelButton = cancel;
+                dialog.ActiveControl = input;
+                return dialog.ShowDialog() == DialogResult.OK ? input.Text.Trim() : null;
+            }
         }
 
         private static int ScanCli()

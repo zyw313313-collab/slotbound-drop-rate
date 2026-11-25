@@ -13,8 +13,8 @@ try {
     $out = Join-Path $temp 'SlotboundTests.exe'
     & $csc /nologo /target:exe /platform:x64 /codepage:65001 /out:"$out" `
         /r:System.dll /r:System.Core.dll `
-        "$PSScriptRoot\RarityTests.cs" "$PSScriptRoot\CompatibilityTests.cs" `
-        "$root\src\RaritySession.cs" "$root\src\BuildCompatibility.cs"
+        "$PSScriptRoot\RarityTests.cs" "$PSScriptRoot\CompatibilityTests.cs" "$PSScriptRoot\ProfileSetupTests.cs" `
+        "$root\src\RaritySession.cs" "$root\src\BuildCompatibility.cs" "$root\src\ProfileSetup.cs"
     if ($LASTEXITCODE -ne 0) { throw "Test compilation failed with exit code $LASTEXITCODE" }
     & $out
     if ($LASTEXITCODE -ne 0) { throw "Tests failed with exit code $LASTEXITCODE" }

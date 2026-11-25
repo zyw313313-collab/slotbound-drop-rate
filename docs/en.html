@@ -77,8 +77,9 @@
     <nav class="nav">
       <a href="#install">Install</a>
       <a href="#usage">Usage</a>
+      <a href="#faq-compatibility">Minor updates</a>
       <a href="#faq">FAQ</a>
-      <a href="index.html">中文</a>
+      <a href="index.html" lang="zh-CN" hreflang="zh-CN">简体中文</a>
       <a href="https://github.com/zyw313313-collab/slotbound-drop-rate">GitHub</a>
     </nav>
   </header>
@@ -88,7 +89,7 @@
       <h1>Adjust <span>Slotbound</span> rarity odds</h1>
       <p class="tag">Set the odds for five rarities while the game is running. Single-player only. The tool does not directly edit game files or saves.</p>
       <div class="badges">
-        <span class="badge">Tool v1.2.0</span>
+        <span class="badge">Tool v1.2.1</span>
         <span class="badge">Windows 10 / 11 x64</span>
         <span class="badge">EN / 中文</span>
       </div>
@@ -104,7 +105,7 @@
       </figure>
       <aside class="card">
         <h3>Supported game builds</h3>
-        <p>The profile shipped with tool v1.2.0 enables writing only for Slotbound v1.0.4 (Steam build 26899345) on Windows x64. Older builds are no longer supported for writes.</p>
+        <p>The profile shipped with tool v1.2.1 enables writing only for Slotbound v1.0.4 (Steam build 26899345) on Windows x64. Older builds are no longer supported for writes.</p>
       </aside>
     </div>
   </div>
@@ -129,7 +130,7 @@
 
   <section id="install">
     <h2>Install</h2>
-    <p>Download <code>SlotboundDropRate.zip</code> and extract <code>SlotboundDropRate.exe</code> and <code>slotbound-compatibility.ini</code> into the same folder. Keep both files together and run the EXE. Or use the one-click installer to download the latest release ZIP, install both files in <code>%LOCALAPPDATA%\SlotboundDropRate</code>, and create a desktop shortcut. Requires .NET Framework 4.x (included with Windows 10/11).</p>
+    <p>Extract the entire <code>SlotboundDropRate.zip</code> into a writable folder before opening the EXE. Keep the EXE, INI, and <code>update-compatibility.bat</code> together. The one-click installer puts all three in <code>%LOCALAPPDATA%\SlotboundDropRate</code> and creates a desktop shortcut. Requires .NET Framework 4.x (included with Windows 10/11).</p>
     <p>If a later game update only needs a new profile, close the tool, download the standalone <a href="https://github.com/zyw313313-collab/slotbound-drop-rate/releases/latest/download/slotbound-compatibility.ini"><code>slotbound-compatibility.ini</code></a>, manually replace the file beside the tool EXE, and reopen the tool. The tool never fetches profiles automatically.</p>
   </section>
 
@@ -141,15 +142,22 @@
       <li>Enter five percentages that add up to <b>100%</b>, then select <b>Apply once</b>.</li>
       <li>Select <b>Restore original</b> to revert the odds.</li>
     </ol>
+    <p><a href="#faq-compatibility">Can't apply or restore odds after a minor Steam update? See the local compatibility helper.</a></p>
     <p class="note">Back up <code>%APPDATA%\slotbound_full</code> first.</p>
   </section>
 
   <section id="faq">
     <h2>FAQ</h2>
     <details><summary>Can't read the current odds?</summary>
-      <p>Make sure the game has finished loading. If Steam just updated the game, restart it before selecting “Read current odds” again.</p></details>
+      <p>Make sure the game has finished loading. If Steam just updated the game, restart it before selecting “Read current odds” again. If reading works but Apply and Restore don't, see the Steam update question below.</p></details>
     <details><summary>Why can I read the odds but not apply or restore them?</summary>
       <p>If the game EXE and Lua runtime still match, an unknown Steam build or mismatched <code>Slotbound.dat</code> can be checked in read-only diagnostic mode. A missing, invalid, or mismatched profile never enables writing. If the game EXE or Lua runtime changes, even read-only diagnostics stop.</p></details>
+    <details id="faq-compatibility" open><summary>How do I try the local compatibility helper after a minor Steam update?</summary>
+      <p>Starting with v1.2.1, the release package includes <code>update-compatibility.bat</code> beside the tool EXE and INI. If you used the one-click installer, paste <code>%LOCALAPPDATA%\SlotboundDropRate</code> into File Explorer's address bar to find it.</p>
+      <p>Restart the updated game and enter a disposable single-player run. Once it has loaded, close the old tool window, then double-click the launcher. The helper runs a live read-only scan, gets the Steam Build ID and the SHA-256 of <code>Slotbound.dat</code> automatically, and asks for the actual game version in <code>x.y.z</code> format. If the checks pass, it saves a separate <code>slotbound-compatibility.candidate.ini</code>.</p>
+      <p>The Replace prompt defaults to <b>No</b>, leaving the active profile alone. If you explicitly choose <b>Yes</b>, the helper backs up any active profile as <code>slotbound-compatibility.backup-*.ini</code> in the same folder before installing the candidate. If there's no active profile, it installs without a backup.</p>
+      <p>A read-only scan isn't a gameplay test. Reopen the tool in the disposable run, verify real rarity draws, and check that Apply once and Restore original work. The profile is experimental and stays local; nothing is published automatically.</p>
+      <p>To roll back, close the tool and replace the active <code>slotbound-compatibility.ini</code> with the backup, or reinstall the official bundle. If the game EXE, Lua runtime, or rarity table changes, the helper won't generate a candidate. Wait for a tool update.</p></details>
     <details><summary>Does 100% guarantee that rarity on every spin?</summary>
       <p>The ordinary rarity roll requires matching symbols. Scripted overrides may produce different results. In a controlled in-game test, 100% Prismatic yielded one prismatic spear unit, and 100% Legendary yielded two legendary skeleton mages.</p></details>
   </section>
@@ -157,7 +165,7 @@
   <section id="build">
     <h2>Build it yourself</h2>
     <p class="tag">The repo contains the full C# source; it only needs the .NET Framework that ships with Windows:</p>
-    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → <code>dist\SlotboundDropRate.exe</code>, <code>dist\slotbound-compatibility.ini</code>, and <code>dist\SlotboundDropRate.zip</code> (contains both files)</p>
+    <p><code>powershell -ExecutionPolicy Bypass -File build.ps1</code> → <code>dist\SlotboundDropRate.exe</code>, <code>dist\slotbound-compatibility.ini</code>, <code>dist\update-compatibility.bat</code>, and <code>dist\SlotboundDropRate.zip</code> (contains all three files). Installing this ZIP puts the launcher beside the EXE and INI.</p>
   </section>
 
   <footer>

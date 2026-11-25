@@ -8,6 +8,7 @@ internal static class RarityTests
     private static void Main()
     {
         CompatibilityTests.Run();
+        ProfileSetupTests.Run();
         var memory = Fixture();
         var session = new OddsTable(memory);
         Equal(session.Read()[4], 0.001, "stock prism");
